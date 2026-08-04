@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Oracle — Stock Research Terminal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d0f;
+      --surface:   #141418;
+      --surface2:  #1a1a20;
+      --border:    rgba(255,255,255,0.07);
+      --border-md: rgba(255,255,255,0.12);
+      --text:      #e8e8ec;
+      --muted:     #6b6b78;
+      --subtle:    #3a3a44;
+      --blue:      #4a9eff;
+      --blue-dim:  rgba(74,158,255,0.12);
+      --green:     #34d399;
+      --green-dim: rgba(52,211,153,0.12);
+      --red:       #f87171;
+      --red-dim:   rgba(248,113,113,0.12);
+      --amber:     #fbbf24;
+      --amber-dim: rgba(251,191,36,0.12);
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --radius:    6px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── LAYOUT ── */
+    .shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 48px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 22px; height: 22px;
+      background: var(--blue);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0d0d0f;
+    }
+
+    .brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text);
+    }
+
+    .brand-sep { color: var(--subtle); margin: 0 2px; }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--subtle);
+      transition: background 0.3s;
+    }
+    .status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+    .status-dot.ok      { background: var(--green); }
+    .status-dot.err     { background: var(--red); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .status-label {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 220px;
+      text-align: right;
+    }
+
+    /* ── BUTTONS ── */
+    button {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-md);
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--surface2); color: var(--text); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    button.primary {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    button.primary:hover { background: var(--blue-dim); }
+
+    /* ── PROGRESS ── */
+    .progress-rail {
+      height: 2px;
+      background: var(--border);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--blue);
+      transition: width 0.4s ease;
+    }
+
+    /* ── SUBBAR ── */
+    .subbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 38px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .filter-btn.active {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: var(--blue-dim);
+    }
+    .filter-btn:hover { color: var(--text); }
+
+    .subbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      padding: 20px 24px;
+      overflow-x: auto;
+    }
+
+    /* ── ERROR / INFO BANNERS ── */
+    .banner {
+      display: none;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .banner.err  { background: var(--red-dim);   border: 1px solid rgba(248,113,113,0.25); color: var(--red); }
+    .banner.info { background: var(--blue-dim);  border: 1px solid rgba(74,158,255,0.2);   color: var(--blue); }
+    .banner.visible { display: block; }
+
+    /* ── WELCOME ── */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 320px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .welcome-icon { font-size: 36px; opacity: 0.4; }
+    .welcome h2 { font-size: 16px; font-weight: 500; color: var(--text); letter-spacing: 0.04em; }
+    .welcome p  { font-size: 12px; max-width: 380px; line-height: 1.7; }
+    .welcome .steps {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .step-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border-md);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--text);
+    }
+    .step-num {
+      width: 16px; height: 16px;
+      background: var(--blue-dim);
+      border: 1px solid rgba(74,158,255,0.3);
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--blue);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      display: none;
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .table-wrap.visible { display: block; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    thead tr {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border-md);
+    }
+
+    th {
+      padding: 8px 12px;
+      text-align: right;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      user-select: none;
+    }
+    th:first-child, th:nth-child(2) { text-align: left; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.08s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    td {
+      padding: 8px 12px;
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    td:first-child, td:nth-child(2) { text-align: left; }
+
+    .ticker-label { font-weight: 600; color: var(--blue); font-size: 12px; }
+    .name-label   { color: var(--muted); font-size: 11px; }
+
+    .consensus { display: inline-flex; gap: 4px; align-items: center; }
+    .pill { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+    .pill.buy  { background: var(--green-dim); color: var(--green); }
+    .pill.hold { background: var(--amber-dim); color: var(--amber); }
+    .pill.sell { background: var(--red-dim);   color: var(--red); }
+
+    .up      { color: var(--green); }
+    .down    { color: var(--red); }
+    .neutral { color: var(--muted); }
+    .na      { color: var(--subtle); font-size: 10px; }
+
+    .bar-cell { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .mini-bar { width: 40px; height: 3px; border-radius: 2px; background: var(--subtle); overflow: hidden; flex-shrink: 0; }
+    .mini-fill { height: 100%; border-radius: 2px; }
+
+    .tag {
+      font-size: 9px; font-weight: 600;
+      padding: 1px 5px; border-radius: 2px;
+      margin-left: 3px; vertical-align: middle;
+      letter-spacing: 0.04em;
+    }
+    .tag-ob { background: var(--red-dim);   color: var(--red); }
+    .tag-os { background: var(--green-dim); color: var(--green); }
+
+    /* ── COMMENTARY ── */
+    .commentary {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+    .commentary.visible { display: block; }
+    .commentary-label {
+      font-size: 9px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--subtle); margin-bottom: 6px;
+    }
+    .commentary strong { color: var(--text); font-weight: 600; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 10px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--subtle);
+      background: var(--surface);
+    }
+
+    /* ── SKELETON ROWS ── */
+    .skeleton td { opacity: 0.4; }
+    .skel-bar {
+      display: inline-block;
+      height: 10px;
+      border-radius: 3px;
+      background: var(--surface2);
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer {
+      0%   { opacity: 0.3; }
+      50%  { opacity: 0.7; }
+      100% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">⬡</div>
+      <span class="brand-name">The Oracle</span>
+      <span class="brand-sep">/</span>
+      <span class="brand-sub">31 tickers</span>
+    </div>
+    <div class="topbar-right">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">Ready — click Refresh to load</span>
+      <button onclick="requestDeepDive()">⤴ Deep dive</button>
+      <button class="primary" id="refreshBtn" onclick="fetchData()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <!-- PROGRESS -->
+  <div class="progress-rail"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- SUBBAR -->
+  <div class="subbar">
+    <div class="filters" id="filters">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All (31)</button>
+      <button class="filter-btn" onclick="setFilter('tech',this)">Tech</button>
+      <button class="filter-btn" onclick="setFilter('defense',this)">Defense</button>
+      <button class="filter-btn" onclick="setFilter('health',this)">Health</button>
+      <button class="filter-btn" onclick="setFilter('ev',this)">EV / Auto</button>
+      <button class="filter-btn" onclick="setFilter('semis',this)">Semis</button>
+      <button class="filter-btn" onclick="setFilter('europe',this)">Europe</button>
+    </div>
+    <div class="subbar-right">
+      <span id="timestampLabel"></span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main>
+    <div class="banner err" id="errorBanner"></div>
+
+    <!-- WELCOME STATE -->
+    <div class="welcome" id="welcomeState">
+      <div class="welcome-icon">◈</div>
+      <h2>The Oracle</h2>
+      <p>Live market research terminal. Fetches prices, analyst consensus, price targets, RSI, and 52-week position for your 31-ticker watchlist.</p>
+      <div class="steps">
+        <div class="step-chip"><div class="step-num">1</div> Click Refresh</div>
+        <div class="step-chip"><div class="step-num">2</div> AI searches the web</div>
+        <div class="step-chip"><div class="step-num">3</div> Table renders live</div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap" id="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>Consensus</th>
+            <th>Price</th>
+            <th>PT Low</th>
+            <th>PT Median</th>
+            <th>PT High</th>
+            <th>Upside %</th>
+            <th>RSI 14d</th>
+            <th>52W Pos</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- COMMENTARY -->
+    <div class="commentary" id="commentary">
+      <div class="commentary-label">Signal summary</div>
+      <div id="commentaryText"></div>
+    </div>
+  </main>
+
+  <footer>
+    <span>Sources: Yahoo Finance · TipRanks · MarketWatch · Refinitiv · S&P Global</span>
+    <span>For informational purposes only — not investment advice</span>
+  </footer>
+
+</div>
+
+<script>
+const WATCHLIST = [
+  { ticker:'AAPL',  name:'Apple Inc',              sector:'tech'    },
+  { ticker:'AMD',   name:'Adv. Micro Devices',      sector:'semis'   },
+  { ticker:'AMZN',  name:'Amazon.com Inc',          sector:'tech'    },
+  { ticker:'BABA',  name:'Alibaba Group ADR',       sector:'tech'    },
+  { ticker:'META',  name:'Meta Platforms',          sector:'tech'    },
+  { ticker:'IBKR',  name:'Interactive Brokers',     sector:'tech'    },
+  { ticker:'MSFT',  name:'Microsoft Corp',          sector:'tech'    },
+  { ticker:'NIO',   name:'NIO Inc ADR',             sector:'ev'      },
+  { ticker:'PLTR',  name:'Palantir Technologies',   sector:'tech'    },
+  { ticker:'TSLA',  name:'Tesla Inc',               sector:'ev'      },
+  { ticker:'CRWD',  name:'CrowdStrike Holdings',    sector:'tech'    },
+  { ticker:'NVDA',  name:'Nvidia Corp',             sector:'semis'   },
+  { ticker:'RHM',   name:'Rheinmetall AG',          sector:'europe'  },
+  { ticker:'CTSH',  name:'Cognizant Tech Sol.',     sector:'tech'    },
+  { ticker:'BAESY', name:'BAE Systems PLC ADR',     sector:'defense' },
+  { ticker:'NOC',   name:'Northrop Grumman',        sector:'defense' },
+  { ticker:'GD',    name:'General Dynamics',        sector:'defense' },
+  { ticker:'NVO',   name:'Novo Nordisk ADR',        sector:'health'  },
+  { ticker:'GILD',  name:'Gilead Sciences',         sector:'health'  },
+  { ticker:'ASML',  name:'ASML Holding NY',         sector:'semis'   },
+  { ticker:'VRT',   name:'Vertiv Holdings',         sector:'tech'    },
+  { ticker:'ORCL',  name:'Oracle Corp',             sector:'tech'    },
+  { ticker:'NKE',   name:'Nike Inc Cl B',           sector:'tech'    },
+  { ticker:'COST',  name:'Costco Wholesale',        sector:'tech'    },
+  { ticker:'SONO',  name:'Sonos Inc',               sector:'tech'    },
+  { ticker:'APH',   name:'Amphenol Corp',           sector:'tech'    },
+  { ticker:'AVGO',  name:'Broadcom Inc',            sector:'semis'   },
+  { ticker:'VST',   name:'Vistra Corp',             sector:'tech'    },
+  { ticker:'TEM',   name:'Tempus AI Inc',           sector:'health'  },
+  { ticker:'CRWV',  name:'CoreWeave Inc',           sector:'tech'    },
+  { ticker:'LMT',   name:'Lockheed Martin',         sector:'defense' },
+];
+
+let tableData = [];
+let activeFilter = 'all';
+let isFetching = false;
+
+// ── STATE HELPERS ──────────────────────────────────────────────
+function setDot(state) {
+  document.getElementById('statusDot').className = 'status-dot' + (state ? ' ' + state : '');
+}
+function setStatus(text) {
+  document.getElementById('statusLabel').textContent = text;
+}
+function setProgress(pct) {
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('visible');
+}
+function clearError() {
+  document.getElementById('errorBanner').classList.remove('visible');
+}
+
+// ── API CALL ────────────────────────────────────────────────────
+async function callProxy(body) {
+  const res = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── MAIN FETCH ──────────────────────────────────────────────────
+async function fetchData() {
+  if (isFetching) return;
+  isFetching = true;
+  clearError();
+  document.getElementById('refreshBtn').disabled = true;
+  document.getElementById('welcomeState').style.display = 'none';
+  document.getElementById('commentary').classList.remove('visible');
+
+  setDot('loading');
+  setStatus('Searching the web for market data…');
+  setProgress(8);
+  showSkeletonRows();
+
+  const tickerList = WATCHLIST.map(w => w.ticker).join(', ');
+
+  const prompt = `You are a stock data assistant. Search the web for current market data and return ONLY a raw JSON array — no markdown fences, no explanation text, just the array starting with [ and ending with ].
+
+Tickers: ${tickerList}
+
+Each object needs these exact keys:
+"ticker","price","buy","hold","sell","pt_low","pt_median","pt_high","upside_pct","rsi","pos_52w"
+
+Rules:
+- price: string with currency symbol e.g. "$182.50" or "€450.00"
+- buy/hold/sell: integer analyst rating counts from TipRanks, S&P Global, or similar
+- pt_low/pt_median/pt_high: 12-month analyst price targets with currency symbol
+- upside_pct: numeric string only e.g. "12.4" or "-3.2" (no % sign, no + sign)
+- rsi: 14-day RSI numeric string e.g. "58.3"
+- pos_52w: 52-week position 0-100 as numeric string e.g. "67.2"
+- Use "N/A" string if genuinely unavailable
+- RHM trades on XETRA — quote in EUR
+- BAESY is the US ADR for BAE Systems — quote in USD
+
+Return ONLY the JSON array. Start with [ and end with ].`;
+
+  try {
+    setProgress(20);
+    const data = await callProxy({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    setProgress(80);
+
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('No JSON array found in response — try refreshing again');
+
+    const rows = JSON.parse(match[0]);
+    setProgress(95);
+
+    tableData = rows.map(r => {
+      const w = WATCHLIST.find(w => w.ticker === r.ticker) || {};
+      return { ...r, name: w.name || r.ticker, sector: w.sector || 'tech' };
+    });
+
+    renderTable(tableData);
+    buildCommentary(tableData);
+
+    document.getElementById('tableWrap').classList.add('visible');
+    setDot('ok');
+    setStatus(`${tableData.length} tickers loaded`);
+    document.getElementById('timestampLabel').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    setProgress(100);
+    setTimeout(() => setProgress(0), 800);
+
+  } catch (err) {
+    setDot('err');
+    setStatus('Error — ' + err.message.slice(0, 60));
+    showError(err.message);
+    document.getElementById('tableBody').innerHTML = '';
+    document.getElementById('tableWrap').classList.remove('visible');
+    document.getElementById('welcomeState').style.display = 'flex';
+    setProgress(0);
+  } finally {
+    isFetching = false;
+    document.getElementById('refreshBtn').disabled = false;
+  }
+}
+
+// ── SKELETON ────────────────────────────────────────────────────
+function showSkeletonRows() {
+  const tbody = document.getElementById('tableBody');
+  document.getElementById('tableWrap').classList.add('visible');
+  const skel = (w) => `<span class="skel-bar" style="width:${w}px"></span>`;
+  tbody.innerHTML = Array.from({ length: 15 }, (_, i) => `
+    <tr class="skeleton">
+      <td>${skel(40)}</td><td>${skel(110)}</td><td>${skel(80)}</td>
+      <td>${skel(55)}</td><td>${skel(50)}</td><td>${skel(55)}</td><td>${skel(50)}</td>
+      <td>${skel(40)}</td><td>${skel(45)}</td><td>${skel(45)}</td>
+    </tr>`).join('');
+}
+
+// ── FILTER ──────────────────────────────────────────────────────
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable(tableData);
+}
+
+// ── RENDER ──────────────────────────────────────────────────────
+function rsiColor(v) {
+  if (v > 70) return 'var(--red)';
+  if (v < 30) return 'var(--green)';
+  return 'var(--blue)';
+}
+
+function fmt(v) {
+  return (v && v !== 'N/A') ? v : '<span class="na">N/A</span>';
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  const rows = activeFilter === 'all' ? data : data.filter(r => r.sector === activeFilter);
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">No tickers in this filter</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const upv = parseFloat(r.upside_pct);
+    const upClass = isNaN(upv) ? 'neutral' : upv > 5 ? 'up' : upv < -5 ? 'down' : 'neutral';
+    const upTxt = isNaN(upv)
+      ? '<span class="na">N/A</span>'
+      : (upv > 0 ? '+' : '') + upv.toFixed(1) + '%';
+
+    const rsiV = parseFloat(r.rsi);
+    const rsiTxt = isNaN(rsiV)
+      ? '<span class="na">N/A</span>'
+      : `<div class="bar-cell">
+           <span style="color:${rsiColor(rsiV)}">${rsiV.toFixed(1)}${rsiV > 70 ? '<span class="tag tag-ob">OB</span>' : rsiV < 30 ? '<span class="tag tag-os">OS</span>' : ''}</span>
+           <div class="mini-bar"><div class="mini-fill" style="width:${Math.min(rsiV,100)}%;background:${rsiColor(rsiV)}"></div></div>
+         </div>`;
+
+    const posV = parseFloat(r.pos_52w);
+    const posTxt = isNaN(posV)
+      ? '<span class="na">N/A</span>'
+      : `<div class="bar-cell">
+           <span>${posV.toFixed(1)}%</span>
+           <div class="mini-bar"><div class="mini-fill" style="width:${Math.min(posV,100)}%;background:var(--blue)"></div></div>
+         </div>`;
+
+    const B = isNaN(parseInt(r.buy))  ? '—' : r.buy;
+    const H = isNaN(parseInt(r.hold)) ? '—' : r.hold;
+    const S = isNaN(parseInt(r.sell)) ? '—' : r.sell;
+
+    return `<tr>
+      <td><span class="ticker-label">${r.ticker}</span></td>
+      <td><span class="name-label">${r.name}</span></td>
+      <td><div class="consensus">
+        <span class="pill buy">${B}B</span>
+        <span class="pill hold">${H}H</span>
+        <span class="pill sell">${S}S</span>
+      </div></td>
+      <td>${fmt(r.price)}</td>
+      <td class="neutral">${fmt(r.pt_low)}</td>
+      <td style="font-weight:600">${fmt(r.pt_median)}</td>
+      <td class="neutral">${fmt(r.pt_high)}</td>
+      <td class="${upClass}">${upTxt}</td>
+      <td>${rsiTxt}</td>
+      <td>${posTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── COMMENTARY ──────────────────────────────────────────────────
+function buildCommentary(rows) {
+  const ob  = rows.filter(r => parseFloat(r.rsi) > 70).map(r => `<strong>${r.ticker}</strong>`);
+  const os  = rows.filter(r => parseFloat(r.rsi) < 30).map(r => `<strong>${r.ticker}</strong>`);
+  const big = rows.filter(r => parseFloat(r.upside_pct) > 20)
+                  .map(r => `<strong>${r.ticker}</strong> (+${parseFloat(r.upside_pct).toFixed(1)}%)`);
+  const low = rows.filter(r => parseFloat(r.pos_52w) < 10).map(r => `<strong>${r.ticker}</strong>`);
+  const hi  = rows.filter(r => parseFloat(r.pos_52w) > 90).map(r => `<strong>${r.ticker}</strong>`);
+
+  const lines = [];
+  if (ob.length)  lines.push('Overbought RSI >70: ' + ob.join(', '));
+  if (os.length)  lines.push('Oversold RSI <30: ' + os.join(', '));
+  if (big.length) lines.push('High upside to median PT: ' + big.join(', '));
+  if (low.length) lines.push('Near 52-week low: ' + low.join(', '));
+  if (hi.length)  lines.push('Near 52-week high: ' + hi.join(', '));
+
+  if (!lines.length) return;
+  document.getElementById('commentaryText').innerHTML = lines.join('&nbsp; · &nbsp;');
+  document.getElementById('commentary').classList.add('visible');
+}
+
+// ── DEEP DIVE ───────────────────────────────────────────────────
+function requestDeepDive() {
+  const notable = tableData
+    .filter(r => parseFloat(r.upside_pct) > 15 || parseInt(r.buy) > 20)
+    .map(r => r.ticker).slice(0, 5).join(', ');
+  const tickers = notable || 'NVDA, META, MSFT, PLTR, AMD';
+  alert(`Deep dive prompt copied — paste into Claude:\n\nRun a deep dive on ${tickers}. Include latest news, next earnings date, sector context, and 2–3 comparable peers each.`);
+}
+</script>
+</body>
+</html>
