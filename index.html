@@ -216,7 +216,7 @@
     <div class="welcome" id="welcome">
       <div class="welcome-glyph">◈</div>
       <h1>The Oracle</h1>
-      <p>Market research terminal. Live prices and RSI from Yahoo Finance, analyst consensus and price targets from Gemini 3.5 Flash. Data persists between sessions and auto-refreshes at midnight.</p>
+      <p>Market research terminal. Live prices, RSI and moving averages from Yahoo Finance. Analyst consensus, price targets and earnings dates from Finnhub. Data persists across all browsers.</p>
       <div class="welcome-steps">
         <div class="ws"><div class="wsn">1</div>Click Refresh</div>
         <div class="ws"><div class="wsn">2</div>Fetches 1 ticker at a time</div>
@@ -257,7 +257,7 @@
   </main>
 
   <footer>
-    <span>Prices: Yahoo Finance (live) · Analyst data: Gemini 3.5 Flash</span>
+    <span>Prices: Yahoo Finance · Analyst data: Finnhub</span>
     <span id="footerTs"></span>
     <span>Not investment advice</span>
   </footer>
@@ -491,15 +491,15 @@ async function fetchYahoo(ticker) {
 }
 
 async function fetchAnalyst(ticker) {
-  const r = await fetch('/api/gemini', {
+  const r = await fetch('/api/finnhub', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'analyst', ticker }),
+    body: JSON.stringify({ ticker }),
   });
-  if (!r.ok) { const e = await r.json().catch(() => ({ error: r.statusText })); throw new Error('Gemini: ' + (e.error || r.status)); }
+  if (!r.ok) { const e = await r.json().catch(() => ({ error: r.statusText })); throw new Error('Finnhub: ' + (e.error || r.status)); }
   const d = await r.json();
-  if (d.error) throw new Error('Gemini: ' + d.error);
-  return d.analyst;
+  if (d.error) throw new Error('Finnhub: ' + d.error);
+  return d;
 }
 
 async function fetchTicker(ticker) {
@@ -644,6 +644,12 @@ async function startGeminiPhase() {
 
     try {
       const analyst = await fetchAnalyst(ticker);
+      const price = parseFloat(tableData[ticker]?.price);
+      const ptMedian = parseFloat(analyst.pt_median);
+      const upsidePct = (price && ptMedian && !isNaN(price) && !isNaN(ptMedian))
+        ? (((ptMedian - price) / price) * 100).toFixed(1)
+        : null;
+
       tableData[ticker] = {
         ...tableData[ticker],
         buy:           parseInt(analyst.buy)  || 0,
@@ -652,7 +658,7 @@ async function startGeminiPhase() {
         pt_low:        analyst.pt_low        || null,
         pt_median:     analyst.pt_median     || null,
         pt_high:       analyst.pt_high       || null,
-        upside_pct:    analyst.upside_pct    || null,
+        upside_pct:    upsidePct,
         earnings_date: analyst.earnings_date || null,
       };
       updateTableRow(ticker, tableData[ticker]);
