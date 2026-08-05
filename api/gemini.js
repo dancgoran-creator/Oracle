@@ -12,7 +12,7 @@ async function callGemini(apiKey, prompt, useSearch) {
   for (let attempt = 0; attempt < 5; attempt++) {
     if (attempt > 0) {
       const wait = attempt * 15000;
-      console.log(`429 retry ${attempt + 1} — waiting ${wait}ms`);
+      console.log(`Retry ${attempt + 1} — waiting ${wait}ms`);
       await sleep(wait);
     }
     const res = await fetch(url, {
@@ -28,7 +28,7 @@ async function callGemini(apiKey, prompt, useSearch) {
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
-  throw new Error('Rate limited after 5 retries — wait a few minutes and try again.');
+  throw new Error('Rate limited after 5 retries.');
 }
 
 module.exports = async function handler(req, res) {
@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY not set' });
 
-  // ── GET: list available models ───────────────────────────────────────────
+  // ── GET: list models ─────────────────────────────────────────────────────
   if (req.method === 'GET') {
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -54,13 +54,12 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Vercel auto-parses JSON bodies — req.body should be available
   const body = req.body || {};
   const { mode, ticker, prompt, useSearch } = body;
 
-  console.log('gemini handler:', JSON.stringify({ mode, ticker: ticker || null, hasPrompt: !!prompt }));
+  console.log('Request:', JSON.stringify({ mode, ticker: ticker || null, hasPrompt: !!prompt }));
 
-  // ── MODE: single ticker ──────────────────────────────────────────────────
+  // ── single ticker ────────────────────────────────────────────────────────
   if (mode === 'ticker' && ticker) {
     const p = `Search Google for current stock market data for ${ticker} and return ONLY a raw JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
 
@@ -93,8 +92,8 @@ No $ £ € % signs in values. Use "N/A" if unavailable. Return ONLY the JSON ob
     }
   }
 
-  // ── MODE: commentary ─────────────────────────────────────────────────────
-  if (!prompt) return res.status(400).json({ error: `No prompt received. mode=${mode} ticker=${ticker}` });
+  // ── commentary ───────────────────────────────────────────────────────────
+  if (!prompt) return res.status(400).json({ error: `No prompt. mode=${mode} ticker=${ticker}` });
   try {
     const text = await callGemini(apiKey, prompt, useSearch || false);
     return res.status(200).json({ text });
