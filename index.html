@@ -450,31 +450,44 @@ async function startRefresh() {
     const chip = $(`pt_${ticker}`);
     if (chip) chip.className = 'ptick active';
     progCount.textContent = `${done}/${tickers.length}`;
-    setStatus(`Fetching ${ticker}… (${done+1}/${tickers.length})`, 'loading');
+    const remaining = (tickers.length - done) * 20;
+    const mins = Math.ceil(remaining / 60);
+    setStatus(`Fetching ${ticker}… (${done+1}/${tickers.length}) · ~${mins}m left`, 'loading');
     setProg(Math.round((done / tickers.length) * 90) + 2);
 
-    try {
-      const row = await fetchTicker(ticker);
-      row.buy  = parseInt(row.buy)  || 0;
-      row.hold = parseInt(row.hold) || 0;
-      row.sell = parseInt(row.sell) || 0;
-      tableData[ticker] = row;
-      consecutiveFails = 0;
+    let tickerSuccess = false;
+    let lastErr = '';
+    // Retry each ticker up to 3 times before marking as failed
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        setStatus(`Retrying ${ticker}… attempt ${attempt+1}/3`, 'loading');
+        await new Promise(r => setTimeout(r, 10000));
+      }
+      try {
+        const row = await fetchTicker(ticker);
+        row.buy  = parseInt(row.buy)  || 0;
+        row.hold = parseInt(row.hold) || 0;
+        row.sell = parseInt(row.sell) || 0;
+        tableData[ticker] = row;
+        consecutiveFails = 0;
+        updateTableRow(ticker, row);
+        if (chip) chip.className = 'ptick done';
+        tickerSuccess = true;
+        break;
+      } catch (err) {
+        lastErr = err.message;
+        console.error(`${ticker} attempt ${attempt+1} failed:`, err.message);
+      }
+    }
 
-      // Append row immediately to table as data arrives
-      updateTableRow(ticker, row);
-      if (chip) chip.className = 'ptick done';
-
-    } catch (err) {
-      errors.push(ticker + ': ' + err.message.slice(0, 80));
+    if (!tickerSuccess) {
+      errors.push(ticker + ': ' + lastErr.slice(0, 80));
       consecutiveFails++;
       if (chip) chip.className = 'ptick err';
-      console.error(`${ticker} failed:`, err.message);
 
-      // If first ticker fails, or 3 consecutive fails — surface immediately and stop
-      if (done === 0 || consecutiveFails >= 3) {
-        const reason = err.message.slice(0, 200);
-        showErr(`Stopped after ${consecutiveFails} consecutive failure(s) on ${ticker}: ${reason}`);
+      // Only stop if first ticker fails all retries, or 3 consecutive ticker failures
+      if ((done === 0 && consecutiveFails >= 1) || consecutiveFails >= 3) {
+        showErr(`Stopped on ${ticker} after 3 attempts: ${lastErr.slice(0, 200)}`);
         setStatus('Stopped — see error above', 'err');
         $('progDetail').classList.remove('visible');
         busy = false;
@@ -486,7 +499,7 @@ async function startRefresh() {
 
     done++;
     if (done < tickers.length && !cancelFlag) {
-      await new Promise(r => setTimeout(r, 15000)); // 15s gap between requests // 8s gap to stay under Gemini spend rate limit
+      await new Promise(r => setTimeout(r, 20000)); // 20s gap — stays under Gemini spend cap // 8s gap to stay under Gemini spend rate limit
     }
   }
 
