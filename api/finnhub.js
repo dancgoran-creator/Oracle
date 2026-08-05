@@ -33,15 +33,13 @@ module.exports = async function handler(req, res) {
     const base = `https://finnhub.io/api/v1`;
     const headers = { 'Accept': 'application/json', 'X-Finnhub-Token': apiKey };
 
-    const [recRes, ptRes, calRes] = await Promise.allSettled([
+    const [recRes, calRes] = await Promise.allSettled([
       fetch(`${base}/stock/recommendation?symbol=${sym}&token=${apiKey}`, { headers }).then(r => r.json()),
-      fetch(`${base}/stock/price-target?symbol=${sym}&token=${apiKey}`, { headers }).then(r => r.json()),
       fetch(`${base}/calendar/earnings?symbol=${sym}&token=${apiKey}`, { headers }).then(r => r.json()),
     ]);
 
-    console.log('rec:', recRes.status, recRes.status === 'fulfilled' ? JSON.stringify(recRes.value).slice(0,100) : recRes.reason?.message);
-    console.log('pt:', ptRes.status, ptRes.status === 'fulfilled' ? JSON.stringify(ptRes.value).slice(0,100) : ptRes.reason?.message);
-    console.log('cal:', calRes.status, calRes.status === 'fulfilled' ? JSON.stringify(calRes.value).slice(0,100) : calRes.reason?.message);
+    console.log('rec:', recRes.status === 'fulfilled' ? JSON.stringify(recRes.value).slice(0,80) : recRes.reason?.message);
+    console.log('cal:', calRes.status === 'fulfilled' ? JSON.stringify(calRes.value).slice(0,80) : calRes.reason?.message);
 
     let buy = 0, hold = 0, sell = 0;
     if (recRes.status === 'fulfilled' && Array.isArray(recRes.value) && recRes.value.length > 0) {
@@ -51,25 +49,20 @@ module.exports = async function handler(req, res) {
       sell = (l.strongSell || 0) + (l.sell || 0);
     }
 
-    let ptLow = null, ptMedian = null, ptHigh = null;
-    if (ptRes.status === 'fulfilled' && ptRes.value && !ptRes.value.error) {
-      const pt = ptRes.value;
-      ptLow    = pt.targetLow  ? Number(pt.targetLow).toFixed(2)  : null;
-      ptMedian = pt.targetMean ? Number(pt.targetMean).toFixed(2) : null;
-      ptHigh   = pt.targetHigh ? Number(pt.targetHigh).toFixed(2) : null;
-    }
-
     let earningsDate = null;
     if (calRes.status === 'fulfilled' && calRes.value && !calRes.value.error) {
       const earnings = calRes.value.earningsCalendar || [];
       const today = new Date().toISOString().split('T')[0];
-      const upcoming = earnings.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+      const upcoming = earnings
+        .filter(e => e.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date));
       if (upcoming.length > 0) earningsDate = upcoming[0].date;
+      // If no future date found, leave as null — frontend will show N/A
     }
 
-    console.log(`${ticker} result: buy=${buy} hold=${hold} sell=${sell} pt=${ptMedian} earnings=${earningsDate}`);
+    console.log(`${ticker} result: buy=${buy} hold=${hold} sell=${sell} earnings=${earningsDate}`);
 
-    return send(res, 200, { ticker, buy: buy.toString(), hold: hold.toString(), sell: sell.toString(), pt_low: ptLow, pt_median: ptMedian, pt_high: ptHigh, earnings_date: earningsDate });
+    return send(res, 200, { ticker, buy: buy.toString(), hold: hold.toString(), sell: sell.toString(), earnings_date: earningsDate });
 
   } catch (err) {
     console.error(`Finnhub error ${ticker}:`, err.message);
