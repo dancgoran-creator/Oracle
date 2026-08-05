@@ -1,4 +1,4 @@
-const MODEL = 'gemini-3.5-flash';
+const MODEL = 'gemini-3.1-flash-lite';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function callGemini(apiKey, prompt, useSearch) {
