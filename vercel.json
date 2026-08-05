@@ -1,8 +1,9 @@
 {
   "functions": {
-    "api/gemini.js": { "maxDuration": 30 },
-    "api/yahoo.js":  { "maxDuration": 15 },
-    "api/store.js":  { "maxDuration": 10 }
+    "api/gemini.js":  { "maxDuration": 30 },
+    "api/yahoo.js":   { "maxDuration": 15 },
+    "api/finnhub.js": { "maxDuration": 15 },
+    "api/store.js":   { "maxDuration": 10 }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
