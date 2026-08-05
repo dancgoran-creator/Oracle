@@ -5,26 +5,30 @@ async function callGemini(apiKey, prompt, useSearch) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
   };
   if (useSearch) body.tools = [{ google_search: {} }];
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(attempt * 5000);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      const wait = attempt * 10000;
+      console.log(`429 retry ${attempt + 1} — waiting ${wait}ms`);
+      await sleep(wait);
+    }
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (res.status === 429) { console.log(`429 attempt ${attempt + 1}`); continue; }
+    if (res.status === 429) { await res.text(); continue; }
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Gemini ${res.status}: ${err.slice(0, 200)}`);
+      throw new Error(`Gemini ${res.status}: ${err.slice(0, 300)}`);
     }
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
-  throw new Error('Rate limited after 3 retries — please wait a moment and try again.');
+  throw new Error('Rate limited after 4 retries.');
 }
 
 export default async function handler(req, res) {
@@ -37,62 +41,48 @@ export default async function handler(req, res) {
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY not set' });
 
-  const { prompt, useSearch, tickers, mode } = req.body;
+  const { mode, ticker, prompt, useSearch } = req.body;
 
-  // ── MODE: data — fetch market data in batches of 10 ─────────────────────
-  if (mode === 'data' && Array.isArray(tickers)) {
-    const BATCH = 10;
-    const results = [];
+  // ── MODE: single ticker ──────────────────────────────────────────────────
+  if (mode === 'ticker' && ticker) {
+    const p = `Search Google for current stock market data for ${ticker} and return ONLY a JSON object — no markdown, no code fences, just the raw JSON object.
 
-    const dataPrompt = (batch) => `You are a market data assistant. Use Google Search to find current market data for these tickers and return ONLY a valid JSON array — no markdown, no code fences. Start with [ and end with ].
-
-Tickers: ${batch.join(', ')}
-
-For each ticker return an object with EXACTLY these keys:
-"ticker"     - string
-"price"      - string, e.g. "182.50"
-"currency"   - string, "USD" or "EUR" (RHM only is EUR)
-"change_pct" - string, e.g. "1.23" or "-0.45"
+Return exactly these keys:
+"ticker"     - "${ticker}"
+"price"      - current price, 2dp string e.g. "182.50"
+"currency"   - "USD" or "EUR" (only RHM is EUR)
+"change_pct" - today's % change, string e.g. "1.23" or "-0.45"
 "buy"        - integer, analyst Buy count
 "hold"       - integer, analyst Hold count
 "sell"       - integer, analyst Sell count
-"pt_low"     - string, 12-month PT low e.g. "150.00"
-"pt_median"  - string, 12-month PT median e.g. "210.00"
-"pt_high"    - string, 12-month PT high e.g. "280.00"
-"upside_pct" - string, % upside to median PT e.g. "15.4"
-"rsi"        - string, 14-day RSI e.g. "58.3"
-"pos52w"     - string, 52W position 0-100 e.g. "67.2"
+"pt_low"     - 12-month price target low, string e.g. "150.00"
+"pt_median"  - 12-month price target median, string e.g. "210.00"
+"pt_high"    - 12-month price target high, string e.g. "280.00"
+"upside_pct" - % upside to median PT, string e.g. "15.4" or "-3.2"
+"rsi"        - 14-day RSI, string e.g. "58.3"
+"pos52w"     - 52-week position 0-100, string e.g. "67.2"
 
-Use "N/A" only if genuinely unavailable. Numbers only — no currency symbols or % signs.
-Return ONLY the JSON array starting with [`;
+Numbers only — no $ £ € or % in values. Use "N/A" if unavailable.
+Return ONLY the JSON object starting with {`;
 
     try {
-      for (let i = 0; i < tickers.length; i += BATCH) {
-        const batch = tickers.slice(i, i + BATCH);
-        const raw = await callGemini(apiKey, dataPrompt(batch), true);
-        const match = raw.match(/\[[\s\S]*?\]/);
-        if (match) {
-          const rows = JSON.parse(match[0]);
-          results.push(...rows);
-        }
-        // Pause between batches to stay under spend rate limit
-        if (i + BATCH < tickers.length) await sleep(4000);
-      }
-      return res.status(200).json({ data: results });
+      const raw = await callGemini(apiKey, p, true);
+      const match = raw.match(/\{[\s\S]*?\}/);
+      if (!match) throw new Error(`No JSON for ${ticker}`);
+      const obj = JSON.parse(match[0]);
+      return res.status(200).json({ ticker: obj });
     } catch (err) {
-      console.error('Data fetch error:', err.message);
+      console.error(`Ticker ${ticker} error:`, err.message);
       return res.status(500).json({ error: err.message });
     }
   }
 
-  // ── MODE: prompt — commentary / deep dive ───────────────────────────────
-  if (!prompt) return res.status(400).json({ error: 'prompt or tickers required' });
-
+  // ── MODE: commentary ─────────────────────────────────────────────────────
+  if (!prompt) return res.status(400).json({ error: 'prompt required' });
   try {
     const text = await callGemini(apiKey, prompt, useSearch || false);
     return res.status(200).json({ text });
   } catch (err) {
-    console.error('Prompt error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
