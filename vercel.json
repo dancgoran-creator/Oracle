@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "api/gemini.js": { "maxDuration": 30 },
+    "api/yahoo.js":  { "maxDuration": 15 }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
