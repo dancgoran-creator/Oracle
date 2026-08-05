@@ -165,6 +165,7 @@
     <div class="topbar-right">
       <div class="status-pill" id="statusPill"><div class="sdot"></div><span id="statusLabel">Ready</span></div>
       <button class="btn sm" id="deepBtn" onclick="deepDive()">↗ Deep dive</button>
+      <button class="btn sm" id="modelBtn" onclick="checkModels()" title="Check available Gemini models">⚙ Models</button>
       <button class="btn sm danger" id="clearBtn" onclick="clearData()">✕ Clear</button>
       <button class="btn primary" id="refreshBtn" onclick="startRefresh()">↻ Refresh</button>
     </div>
@@ -468,7 +469,7 @@ async function startRefresh() {
     done++;
     // Delay between requests to respect rate limits
     if (done < tickers.length && !cancelFlag) {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 8000)); // 8s gap to stay under Gemini spend rate limit
     }
   }
 
@@ -668,6 +669,18 @@ For each: (1) momentum/recent catalyst, (2) consensus & PT range, (3) key bull-c
     $('commentary').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e){ alert('Deep dive failed: '+e.message); }
   finally { $('deepBtn').disabled=false; $('deepBtn').textContent='↗ Deep dive'; }
+}
+
+// ── CHECK MODELS ──────────────────────────────────────────────────────────
+async function checkModels() {
+  try {
+    const r = await fetch('/api/gemini');
+    const d = await r.json();
+    const list = (d.models || []).join('\n');
+    alert('Available models on your account:\n\n' + (list || 'None returned'));
+  } catch(e) {
+    alert('Could not fetch models: ' + e.message);
+  }
 }
 </script>
 </body>
