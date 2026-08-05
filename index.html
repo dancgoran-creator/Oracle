@@ -314,6 +314,9 @@ let midnightTimer = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
+  // Clear stale analyst timestamp so next manual refresh always runs
+  localStorage.removeItem(GEMINI_LAST_KEY);
+
   // Restore any custom tickers added by the user
   try {
     const custom = JSON.parse(localStorage.getItem('oracle_custom_tickers') || '[]');
@@ -564,16 +567,11 @@ async function callGemini(prompt, useSearch=false) {
 }
 
 // ── REFRESH ───────────────────────────────────────────────────────────────
+// Manual refresh always runs both phases
 async function startRefresh() {
   await startYahooPhase();
-  if (geminiDueForRefresh()) {
-    await startGeminiPhase();
-    markGeminiRefreshed();
-  } else {
-    const last = localStorage.getItem(GEMINI_LAST_KEY);
-    const days = last ? Math.floor((Date.now() - new Date(last)) / 86400000) : '?';
-    setStatus(`Prices updated · Analyst data ${days}d old (refreshes weekly)`, 'ok');
-  }
+  await startGeminiPhase();
+  markGeminiRefreshed();
 }
 
 async function startYahooPhase() {
@@ -622,22 +620,22 @@ async function startYahooPhase() {
 
   setProg(40);
   const ts1 = new Date().toISOString();
-  saveToStorage(ts1);
+  await saveToStorage(ts1);
   updateLastUpdated(ts1);
   $('footerTs').textContent = 'Last refresh: ' + new Date(ts1).toLocaleString('en-GB');
   progDetail.classList.remove('visible');
   setProg(100);
   setTimeout(() => setProg(0), 800);
-  setStatus(`${yahooLoaded}/${tickers.length} prices loaded`, 'ok');
+  setStatus(`${yahooLoaded}/${tickers.length} prices loaded — starting analyst phase…`, 'ok');
   busy = false;
   $('refreshBtn').disabled = false;
 }
 
 async function startGeminiPhase() {
-  if (busy) return;
   busy = true;
   cancelFlag = false;
   $('refreshBtn').disabled = true;
+  console.log('startGeminiPhase: starting for', WL.length, 'tickers');
 
   const tickers = WL.map(w => w.ticker);
   const progDetail = $('progDetail');
