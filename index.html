@@ -77,7 +77,7 @@
     .fbtn.active{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
 
     /* MAIN */
-    main{flex:1;overflow-x:auto}
+    main{flex:1;overflow:auto;max-height:calc(100vh - 140px)}
 
     /* WELCOME */
     .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:400px;text-align:center;padding:40px 20px}
@@ -96,7 +96,7 @@
     .table-outer{display:none}
     .table-outer.visible{display:block}
     table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
-    thead tr{background:var(--surface2);border-bottom:1px solid var(--border-md);position:sticky;top:52px;z-index:10}
+    thead tr{background:var(--surface2);border-bottom:1px solid var(--border-md)}
     th{padding:8px 12px;text-align:right;font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none}
     th:hover{color:var(--text)}
     th:first-child,th:nth-child(2){text-align:left}
