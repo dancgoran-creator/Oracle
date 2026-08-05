@@ -11,7 +11,7 @@ async function callGemini(apiKey, prompt, useSearch) {
 
   for (let attempt = 0; attempt < 5; attempt++) {
     if (attempt > 0) {
-      const wait = attempt * 15000; // 15s, 30s, 45s, 60s
+      const wait = attempt * 15000;
       console.log(`429 retry ${attempt + 1} — waiting ${wait}ms`);
       await sleep(wait);
     }
@@ -20,11 +20,7 @@ async function callGemini(apiKey, prompt, useSearch) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (res.status === 429) {
-      const errText = await res.text();
-      console.log(`429 on attempt ${attempt + 1}:`, errText.slice(0, 100));
-      continue;
-    }
+    if (res.status === 429) { await res.text(); continue; }
     if (!res.ok) {
       const err = await res.text();
       throw new Error(`Gemini ${res.status}: ${err.slice(0, 300)}`);
@@ -32,23 +28,10 @@ async function callGemini(apiKey, prompt, useSearch) {
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
-  throw new Error('Rate limited after 5 retries — your Gemini quota is exhausted. Wait a few minutes and try again.');
+  throw new Error('Rate limited after 5 retries — wait a few minutes and try again.');
 }
 
-async function parseBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', chunk => { data += chunk; });
-    req.on('end', () => {
-      try { resolve(JSON.parse(data)); }
-      catch (e) { reject(new Error('Invalid JSON body')); }
-    });
-    req.on('error', reject);
-  });
-}
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -71,23 +54,22 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let body;
-  try { body = await parseBody(req); }
-  catch (e) { return res.status(400).json({ error: 'Bad request body: ' + e.message }); }
-
+  // Vercel auto-parses JSON bodies — req.body should be available
+  const body = req.body || {};
   const { mode, ticker, prompt, useSearch } = body;
+
   console.log('gemini handler:', JSON.stringify({ mode, ticker: ticker || null, hasPrompt: !!prompt }));
 
   // ── MODE: single ticker ──────────────────────────────────────────────────
   if (mode === 'ticker' && ticker) {
-    const p = `Search Google for current stock market data for the ticker ${ticker} and return ONLY a raw JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
+    const p = `Search Google for current stock market data for ${ticker} and return ONLY a raw JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
 
-Required keys (all values as strings):
+Required keys (all as strings):
 "ticker": "${ticker}"
 "price": current price e.g. "182.50"
 "currency": "USD" or "EUR" (RHM only = EUR)
 "change_pct": today % change e.g. "1.23" or "-0.45"
-"buy": analyst buy count as integer string e.g. "18"
+"buy": analyst buy count e.g. "18"
 "hold": analyst hold count e.g. "5"
 "sell": analyst sell count e.g. "2"
 "pt_low": 12-month price target low e.g. "150.00"
@@ -112,11 +94,11 @@ No $ £ € % signs in values. Use "N/A" if unavailable. Return ONLY the JSON ob
   }
 
   // ── MODE: commentary ─────────────────────────────────────────────────────
-  if (!prompt) return res.status(400).json({ error: `No prompt. Received: mode=${mode}, ticker=${ticker}` });
+  if (!prompt) return res.status(400).json({ error: `No prompt received. mode=${mode} ticker=${ticker}` });
   try {
     const text = await callGemini(apiKey, prompt, useSearch || false);
     return res.status(200).json({ text });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-}
+};
