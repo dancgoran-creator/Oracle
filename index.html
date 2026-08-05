@@ -635,38 +635,68 @@ async function startGeminiPhase() {
   busy = true;
   cancelFlag = false;
   $('refreshBtn').disabled = true;
-  console.log('startGeminiPhase: starting for', WL.length, 'tickers');
 
   const tickers = WL.map(w => w.ticker);
   const progDetail = $('progDetail');
   const progTickers = $('progTickers');
   const progCount = $('progCount');
+
+  // ── PHASE 2: All Finnhub calls in parallel ────────────────────────────────
   progDetail.classList.add('visible');
   progTickers.innerHTML = WL.map(w =>
-    `<span class="ptick" id="pt_${w.ticker}">${w.ticker}</span>`
+    `<span class="ptick active" id="pt_${w.ticker}">${w.ticker}</span>`
   ).join('');
+  setStatus(`Fetching consensus & earnings for ${tickers.length} tickers…`, 'loading');
+  setProg(5);
 
-  let analystDone = 0;
-  const analystErrors = [];
+  const finnhubResults = await Promise.allSettled(
+    tickers.map(t => fetchAnalyst(t))
+  );
+
+  // Store Finnhub results immediately
+  finnhubResults.forEach((r, i) => {
+    const ticker = tickers[i];
+    const chip = $(`pt_${ticker}`);
+    if (r.status === 'fulfilled') {
+      const a = r.value;
+      tableData[ticker] = {
+        ...tableData[ticker],
+        buy:           parseInt(a.buy)  || 0,
+        hold:          parseInt(a.hold) || 0,
+        sell:          parseInt(a.sell) || 0,
+        earnings_date: a.earnings_date  || null,
+      };
+      updateTableRow(ticker, tableData[ticker]);
+      if (chip) chip.className = 'ptick done';
+    } else {
+      if (chip) chip.className = 'ptick err';
+      console.warn(`Finnhub ${ticker}:`, r.reason?.message);
+    }
+  });
+
+  setProg(35);
+  setStatus(`Consensus loaded — fetching price targets…`, 'loading');
+
+  // Reset chips for Gemini phase
+  WL.forEach(w => {
+    const c = $(`pt_${w.ticker}`);
+    if (c) c.className = 'ptick';
+  });
+
+  // ── PHASE 3: Gemini price targets one by one ──────────────────────────────
+  let geminiDone = 0;
 
   for (const ticker of tickers) {
     if (cancelFlag) break;
+
     const chip = $(`pt_${ticker}`);
     if (chip) chip.className = 'ptick active';
-    progCount.textContent = `${analystDone}/${tickers.length}`;
-    setStatus(`Analyst: ${ticker} (${analystDone+1}/${tickers.length})`, 'loading');
-    setProg(Math.round((analystDone / tickers.length) * 95));
+    progCount.textContent = `${geminiDone}/${tickers.length}`;
+    setStatus(`Price targets: ${ticker} (${geminiDone+1}/${tickers.length})`, 'loading');
+    setProg(35 + Math.round((geminiDone / tickers.length) * 60));
 
     try {
-      // Finnhub (consensus + earnings) and Gemini (price targets) in parallel
-      const [analystRes, targetsRes] = await Promise.allSettled([
-        fetchAnalyst(ticker),
-        fetchTargets(ticker),
-      ]);
-
-      const analyst = analystRes.status === 'fulfilled' ? analystRes.value : {};
-      const targets = targetsRes.status === 'fulfilled' ? targetsRes.value : {};
-
+      const targets = await fetchTargets(ticker);
       const price    = parseFloat(tableData[ticker]?.price);
       const ptMedian = parseFloat(targets.pt_median);
       const upside   = (price && ptMedian && !isNaN(price) && !isNaN(ptMedian))
@@ -675,40 +705,32 @@ async function startGeminiPhase() {
 
       tableData[ticker] = {
         ...tableData[ticker],
-        buy:           parseInt(analyst.buy)  || 0,
-        hold:          parseInt(analyst.hold) || 0,
-        sell:          parseInt(analyst.sell) || 0,
-        earnings_date: analyst.earnings_date  || null,
-        pt_low:        targets.pt_low         || null,
-        pt_median:     targets.pt_median      || null,
-        pt_high:       targets.pt_high        || null,
-        upside_pct:    upside,
+        pt_low:    targets.pt_low    || null,
+        pt_median: targets.pt_median || null,
+        pt_high:   targets.pt_high   || null,
+        upside_pct: upside,
       };
       updateTableRow(ticker, tableData[ticker]);
       if (chip) chip.className = 'ptick done';
     } catch (err) {
-      analystErrors.push(ticker);
       if (chip) chip.className = 'ptick err';
-      console.warn(`Analyst ${ticker}:`, err.message);
+      console.warn(`Gemini PT ${ticker}:`, err.message);
     }
 
-    analystDone++;
-    if (analystDone < tickers.length && !cancelFlag) {
+    geminiDone++;
+    if (geminiDone < tickers.length && !cancelFlag) {
       await new Promise(r => setTimeout(r, 8000));
     }
   }
 
   const ts2 = new Date().toISOString();
-  saveToStorage(ts2);
+  await saveToStorage(ts2);
   updateLastUpdated(ts2);
   progDetail.classList.remove('visible');
   setProg(100);
 
   if (!cancelFlag) {
-    const msg = analystErrors.length
-      ? `Analyst: ${tickers.length - analystErrors.length}/${tickers.length} loaded`
-      : `All ${tickers.length} tickers fully loaded`;
-    setStatus(msg, 'ok');
+    setStatus(`All ${tickers.length} tickers loaded`, 'ok');
     await buildCommentary();
   }
 
