@@ -654,11 +654,13 @@ async function startGeminiPhase() {
   );
 
   // Store Finnhub results immediately
+  let finnhubLoaded = 0;
   finnhubResults.forEach((r, i) => {
     const ticker = tickers[i];
     const chip = $(`pt_${ticker}`);
     if (r.status === 'fulfilled') {
       const a = r.value;
+      console.log(`Finnhub ${ticker}:`, JSON.stringify(a).slice(0, 100));
       tableData[ticker] = {
         ...tableData[ticker],
         buy:           parseInt(a.buy)  || 0,
@@ -668,11 +670,13 @@ async function startGeminiPhase() {
       };
       updateTableRow(ticker, tableData[ticker]);
       if (chip) chip.className = 'ptick done';
+      finnhubLoaded++;
     } else {
       if (chip) chip.className = 'ptick err';
       console.warn(`Finnhub ${ticker}:`, r.reason?.message);
     }
   });
+  console.log(`Finnhub: ${finnhubLoaded}/${tickers.length} loaded`);
 
   setProg(35);
   setStatus(`Consensus loaded — fetching price targets…`, 'loading');
@@ -715,6 +719,12 @@ async function startGeminiPhase() {
     } catch (err) {
       if (chip) chip.className = 'ptick err';
       console.warn(`Gemini PT ${ticker}:`, err.message);
+      if (err.message.includes('429') || err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('rate limit')) {
+        setStatus('Gemini quota exceeded — price targets paused. Prices & consensus loaded.', 'err');
+        showErr('Gemini quota exceeded. Price targets will retry on next manual refresh.');
+        cancelFlag = true;
+        break; // stop immediately, skip remaining tickers and delay
+      }
     }
 
     geminiDone++;
