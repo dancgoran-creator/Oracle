@@ -101,26 +101,8 @@ module.exports = async function handler(req, res) {
     const w52low    = meta.fiftyTwoWeekLow;
     const volume    = meta.regularMarketVolume;
 
-    // These fields exist in meta but we weren't reading them
-    const avgVolume    = meta.averageDailyVolume3Month
-                      || meta.averageDailyVolume10Day
-                      || null;
-    const beta         = meta.beta ?? null;
-    const sma50meta    = meta.fiftyDayAverage ?? null;
-    const sma200meta   = meta.twoHundredDayAverage ?? null;
-
-    // Earnings — Yahoo stores as Unix timestamp in meta
-    let earningsDate = null;
-    const ets = meta.earningsTimestamp
-             || meta.earningsTimestampStart
-             || null;
-    if (ets) {
-      const d = new Date(ets * 1000);
-      const diffDays = (d - new Date()) / 86400000;
-      if (diffDays > -90 && diffDays < 365) {
-        earningsDate = d.toISOString().split('T')[0];
-      }
-    }
+    const sma50meta  = meta.fiftyDayAverage      ?? null;
+    const sma200meta = meta.twoHundredDayAverage ?? null;
 
     const changePct = prevClose
       ? (((price - prevClose) / prevClose) * 100).toFixed(2)
@@ -156,13 +138,9 @@ module.exports = async function handler(req, res) {
       w52low:        w52low  != null ? w52low.toFixed(2)  : null,
       pos52w,
       rsi,
-      volume:        volume    ? volume.toString()    : null,
-      avg_volume:    avgVolume ? avgVolume.toString() : null,
-      beta:          beta      ? parseFloat(beta).toFixed(2) : null,
       sma50,
       sma200,
-      ma_signal:     maSignal,
-      earnings_date: earningsDate,
+      ma_signal: maSignal,
     });
 
   } catch (err) {
