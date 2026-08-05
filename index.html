@@ -164,9 +164,9 @@
     </div>
     <div class="topbar-right">
       <div class="status-pill" id="statusPill"><div class="sdot"></div><span id="statusLabel">Ready</span></div>
+      <button class="btn sm" id="addBtn" onclick="toggleAddTicker()">+ Add ticker</button>
       <button class="btn sm" id="deepBtn" onclick="deepDive()">↗ Deep dive</button>
-      <button class="btn sm" id="modelBtn" onclick="checkModels()" title="Check available Gemini models">⚙ Models</button>
-      <button class="btn sm danger" id="clearBtn" onclick="clearData()">✕ Clear</button>
+
       <button class="btn primary" id="refreshBtn" onclick="startRefresh()">↻ Refresh</button>
     </div>
   </header>
@@ -196,6 +196,18 @@
     <button class="fbtn" onclick="setSig('52lo',this)" title="Near 52W low">52W Low</button>
     <button class="fbtn" onclick="setSig('sbuy',this)" title="Strong buy consensus">Strong Buy</button>
     <span id="schedLabel" style="margin-left:auto;font-size:10px;color:var(--subtle)"></span>
+  </div>
+
+  <!-- ADD TICKER PANEL -->
+  <div id="addTickerPanel" style="display:none;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:none;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--muted)">Add ticker:</span>
+    <input id="addTickerInput" type="text" placeholder="e.g. GOOGL"
+      style="font-family:var(--font);font-size:12px;padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border-md);background:var(--surface2);color:var(--text);width:100px;outline:none"
+      onkeydown="if(event.key==='Enter') confirmAddTicker()"
+    />
+    <button class="btn primary sm" onclick="confirmAddTicker()">Add</button>
+    <button class="btn sm" onclick="toggleAddTicker()">Cancel</button>
+    <span id="addTickerMsg" style="font-size:11px;color:var(--muted)"></span>
   </div>
 
   <main>
@@ -231,9 +243,6 @@
             <th onclick="sortBy('sma50')">SMA 50</th>
             <th onclick="sortBy('sma200')">SMA 200</th>
             <th onclick="sortBy('ma_signal')" style="text-align:center">MA Signal</th>
-            <th onclick="sortBy('volume')">Volume</th>
-            <th onclick="sortBy('avg_volume')">Avg Vol</th>
-            <th onclick="sortBy('beta')">Beta</th>
             <th onclick="sortBy('earnings_date')">Earnings</th>
           </tr>
         </thead>
@@ -305,6 +314,15 @@ let midnightTimer = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
+  // Restore any custom tickers added by the user
+  try {
+    const custom = JSON.parse(localStorage.getItem('oracle_custom_tickers') || '[]');
+    for (const t of custom) {
+      if (!WL.find(w => w.ticker === t.ticker)) WL.push(t);
+    }
+    $('tickerCount').textContent = `${WL.length} tickers`;
+  } catch(e) {}
+
   await loadFromStorage();
   scheduleMidnight();
 });
@@ -391,23 +409,57 @@ function updateLastUpdated(ts) {
   el.className = 'last-updated ' + (ageHours < 24 ? 'fresh' : 'stale');
 }
 
-// ── MIDNIGHT SCHEDULER ───────────────────────────────────────────────────
+// ── SCHEDULERS ───────────────────────────────────────────────────────────
+// Yahoo: refreshes every day at midnight
+// Gemini: refreshes once per week (Monday 00:00)
+
+const GEMINI_LAST_KEY = 'oracle_gemini_last';
+
+function getNextMidnight() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 30, 0);
+  return d;
+}
+
+function getNextMonday() {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun, 1=Mon...
+  const daysUntil = day === 1 ? 7 : (8 - day) % 7 || 7;
+  d.setDate(d.getDate() + daysUntil);
+  d.setHours(0, 0, 30, 0);
+  return d;
+}
+
+function geminiDueForRefresh() {
+  const last = localStorage.getItem(GEMINI_LAST_KEY);
+  if (!last) return true;
+  const daysSince = (Date.now() - new Date(last).getTime()) / 86400000;
+  return daysSince >= 7;
+}
+
+function markGeminiRefreshed() {
+  localStorage.setItem(GEMINI_LAST_KEY, new Date().toISOString());
+}
+
 function scheduleMidnight() {
   if (midnightTimer) clearTimeout(midnightTimer);
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setDate(midnight.getDate() + 1);
-  midnight.setHours(0, 0, 30, 0); // 00:00:30 to avoid exact-second issues
-  const msUntil = midnight - now;
-  midnightTimer = setTimeout(() => {
-    console.log('Midnight auto-refresh triggered');
-    startRefresh();
-    scheduleMidnight(); // reschedule for next midnight
+  const midnight = getNextMidnight();
+  const msUntil = midnight - new Date();
+  midnightTimer = setTimeout(async () => {
+    console.log('Midnight Yahoo refresh triggered');
+    await startYahooPhase();
+    scheduleMidnight();
+    // Also run Gemini if due
+    if (geminiDueForRefresh()) {
+      await startGeminiPhase();
+      markGeminiRefreshed();
+    }
   }, msUntil);
 
-  const hh = String(midnight.getHours()).padStart(2,'0');
-  const mm = String(midnight.getMinutes()).padStart(2,'0');
-  $('schedLabel').textContent = `Auto-refresh at ${midnight.toLocaleDateString('en-GB')} 00:00`;
+  const nextGemini = getNextMonday();
+  $('schedLabel').textContent =
+    `Yahoo: daily 00:00 · Analyst: ${nextGemini.toLocaleDateString('en-GB', {weekday:'short',day:'numeric',month:'short'})}`;
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
@@ -496,6 +548,18 @@ async function callGemini(prompt, useSearch=false) {
 
 // ── REFRESH ───────────────────────────────────────────────────────────────
 async function startRefresh() {
+  await startYahooPhase();
+  if (geminiDueForRefresh()) {
+    await startGeminiPhase();
+    markGeminiRefreshed();
+  } else {
+    const last = localStorage.getItem(GEMINI_LAST_KEY);
+    const days = last ? Math.floor((Date.now() - new Date(last)) / 86400000) : '?';
+    setStatus(`Prices updated · Analyst data ${days}d old (refreshes weekly)`, 'ok');
+  }
+}
+
+async function startYahooPhase() {
   if (busy) return;
   busy = true;
   cancelFlag = false;
@@ -516,8 +580,8 @@ async function startRefresh() {
 
   const tickers = WL.map(w => w.ticker);
 
-  // ── PHASE 1: All Yahoo calls in parallel (~3s) ────────────────────────────
-  setStatus(`Fetching ${tickers.length} live prices from Yahoo Finance…`, 'loading');
+  // All Yahoo calls in parallel
+  setStatus(`Fetching ${tickers.length} live prices…`, 'loading');
   WL.forEach(w => { const c=$(`pt_${w.ticker}`); if(c) c.className='ptick active'; });
 
   const yahooResults = await Promise.allSettled(
@@ -539,44 +603,57 @@ async function startRefresh() {
     }
   });
 
-  setProg(30);
-  setStatus(`${yahooLoaded}/${tickers.length} prices loaded — fetching analyst data…`, 'loading');
-
-  // Save Yahoo data immediately so prices persist even if Gemini fails
+  setProg(40);
   const ts1 = new Date().toISOString();
   saveToStorage(ts1);
   updateLastUpdated(ts1);
+  $('footerTs').textContent = 'Last refresh: ' + new Date(ts1).toLocaleString('en-GB');
+  progDetail.classList.remove('visible');
+  setProg(100);
+  setTimeout(() => setProg(0), 800);
+  setStatus(`${yahooLoaded}/${tickers.length} prices loaded`, 'ok');
+  busy = false;
+  $('refreshBtn').disabled = false;
+}
 
-  // ── PHASE 2: Gemini analyst calls one by one (~8s each) ──────────────────
-  // Reset chips to pending for analyst phase
-  WL.forEach(w => {
-    const c = $(`pt_${w.ticker}`);
-    if (c) c.className = 'ptick';
-  });
+async function startGeminiPhase() {
+  if (busy) return;
+  busy = true;
+  cancelFlag = false;
+  $('refreshBtn').disabled = true;
+
+  const tickers = WL.map(w => w.ticker);
+  const progDetail = $('progDetail');
+  const progTickers = $('progTickers');
+  const progCount = $('progCount');
+  progDetail.classList.add('visible');
+  progTickers.innerHTML = WL.map(w =>
+    `<span class="ptick" id="pt_${w.ticker}">${w.ticker}</span>`
+  ).join('');
 
   let analystDone = 0;
   const analystErrors = [];
 
   for (const ticker of tickers) {
     if (cancelFlag) break;
-
     const chip = $(`pt_${ticker}`);
     if (chip) chip.className = 'ptick active';
     progCount.textContent = `${analystDone}/${tickers.length}`;
-    setStatus(`Analyst data: ${ticker} (${analystDone+1}/${tickers.length})`, 'loading');
-    setProg(30 + Math.round((analystDone / tickers.length) * 65));
+    setStatus(`Analyst: ${ticker} (${analystDone+1}/${tickers.length})`, 'loading');
+    setProg(Math.round((analystDone / tickers.length) * 95));
 
     try {
       const analyst = await fetchAnalyst(ticker);
       tableData[ticker] = {
         ...tableData[ticker],
-        buy:        parseInt(analyst.buy)  || 0,
-        hold:       parseInt(analyst.hold) || 0,
-        sell:       parseInt(analyst.sell) || 0,
-        pt_low:     analyst.pt_low     || null,
-        pt_median:  analyst.pt_median  || null,
-        pt_high:    analyst.pt_high    || null,
-        upside_pct: analyst.upside_pct || null,
+        buy:           parseInt(analyst.buy)  || 0,
+        hold:          parseInt(analyst.hold) || 0,
+        sell:          parseInt(analyst.sell) || 0,
+        pt_low:        analyst.pt_low        || null,
+        pt_median:     analyst.pt_median     || null,
+        pt_high:       analyst.pt_high       || null,
+        upside_pct:    analyst.upside_pct    || null,
+        earnings_date: analyst.earnings_date || null,
       };
       updateTableRow(ticker, tableData[ticker]);
       if (chip) chip.className = 'ptick done';
@@ -592,25 +669,21 @@ async function startRefresh() {
     }
   }
 
-  // Final save with analyst data
   const ts2 = new Date().toISOString();
   saveToStorage(ts2);
   updateLastUpdated(ts2);
-  $('footerTs').textContent = 'Last refresh: ' + new Date(ts2).toLocaleString('en-GB');
-
   progDetail.classList.remove('visible');
-  setProg(98);
+  setProg(100);
 
   if (!cancelFlag) {
     const msg = analystErrors.length
-      ? `${yahooLoaded} prices · ${tickers.length - analystErrors.length}/${tickers.length} analyst loaded`
+      ? `Analyst: ${tickers.length - analystErrors.length}/${tickers.length} loaded`
       : `All ${tickers.length} tickers fully loaded`;
     setStatus(msg, 'ok');
     await buildCommentary();
   }
 
-  setProg(100);
-  setTimeout(() => setProg(0), 1000);
+  setTimeout(() => setProg(0), 800);
   busy = false;
   cancelFlag = false;
   $('refreshBtn').disabled = false;
@@ -717,25 +790,6 @@ function buildRowHTML(ticker, r) {
     : r.ma_signal === 'death'   ? '<span class="cpill sell">Death ↓</span>'
     : '<span class="na">Neutral</span>';
 
-  // Volume formatter
-  const fmtVol = v => {
-    if (!v || v === 'N/A') return '<span class="na">—</span>';
-    const n = parseInt(v);
-    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
-    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
-    return n.toString();
-  };
-
-  // Vol vs avg volume comparison
-  const volClass = () => {
-    if (!r.volume || !r.avg_volume) return '';
-    const v = parseInt(r.volume), a = parseInt(r.avg_volume);
-    if (v > a * 1.5) return 'up';
-    if (v < a * 0.5) return 'down';
-    return 'neutral';
-  };
-
   // Earnings date — highlight if within 30 days
   const fmtEarnings = v => {
     if (!v || v === 'N/A') return '<span class="na">—</span>';
@@ -762,15 +816,12 @@ function buildRowHTML(ticker, r) {
     <td class="neutral">${fmtP(r.sma50)}</td>
     <td class="neutral">${fmtP(r.sma200)}</td>
     <td style="text-align:center">${maSignalHtml}</td>
-    <td class="${volClass()}">${fmtVol(r.volume)}</td>
-    <td class="neutral">${fmtVol(r.avg_volume)}</td>
-    <td class="neutral">${r.beta && r.beta !== 'N/A' ? r.beta : '<span class="na">—</span>'}</td>
     <td>${fmtEarnings(r.earnings_date)}</td>
   </tr>`;
 }
 
 // ── SORT ─────────────────────────────────────────────────────────────────
-const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w','sma50','sma200','ma_signal','volume','avg_volume','beta','earnings_date'];
+const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w','sma50','sma200','ma_signal','earnings_date'];
 function sortBy(key) {
   sortDir = sortKey===key ? sortDir*-1 : -1; sortKey=key;
   document.querySelectorAll('th').forEach((th,i)=>{th.classList.remove('asc','desc');if(COL_KEYS[i]===key)th.classList.add(sortDir===1?'asc':'desc');});
@@ -835,15 +886,68 @@ For each: (1) momentum/recent catalyst, (2) consensus & PT range, (3) key bull-c
   finally { $('deepBtn').disabled=false; $('deepBtn').textContent='↗ Deep dive'; }
 }
 
-// ── CHECK MODELS ──────────────────────────────────────────────────────────
-async function checkModels() {
+// ── ADD TICKER ────────────────────────────────────────────────────────────
+function toggleAddTicker() {
+  const panel = $('addTickerPanel');
+  const visible = panel.style.display === 'flex';
+  panel.style.display = visible ? 'none' : 'flex';
+  if (!visible) $('addTickerInput').focus();
+}
+
+async function confirmAddTicker() {
+  const input = $('addTickerInput');
+  const msg = $('addTickerMsg');
+  const ticker = input.value.trim().toUpperCase();
+  if (!ticker) return;
+
+  // Check not already in list
+  if (WL.find(w => w.ticker === ticker)) {
+    msg.textContent = `${ticker} is already in your watchlist`;
+    msg.style.color = 'var(--amber)';
+    return;
+  }
+
+  msg.textContent = `Fetching ${ticker}…`;
+  msg.style.color = 'var(--muted)';
+
   try {
-    const r = await fetch('/api/gemini');
-    const d = await r.json();
-    const list = (d.models || []).join('\n');
-    alert('Available models on your account:\n\n' + (list || 'None returned'));
+    // Test fetch to validate ticker
+    const r = await fetchYahoo(ticker);
+    if (!r.price) throw new Error('No price data returned');
+
+    // Add to WL
+    WL.push({ ticker, name: ticker, sector: 'tech' });
+    tableData[ticker] = { ...r, ticker };
+
+    // Save updated WL to localStorage
+    const customKey = 'oracle_custom_tickers';
+    const existing = JSON.parse(localStorage.getItem(customKey) || '[]');
+    existing.push({ ticker, name: ticker, sector: 'tech' });
+    localStorage.setItem(customKey, JSON.stringify(existing));
+
+    // Update ticker count
+    $('tickerCount').textContent = `${WL.length} tickers`;
+
+    // Add chip to progress bar
+    const progTickers = $('progTickers');
+    if (progTickers) {
+      progTickers.insertAdjacentHTML('beforeend',
+        `<span class="ptick done" id="pt_${ticker}">${ticker}</span>`);
+    }
+
+    // Render new row
+    updateTableRow(ticker, tableData[ticker]);
+    showTable();
+    saveToStorage(new Date().toISOString());
+
+    input.value = '';
+    msg.textContent = `${ticker} added ✓`;
+    msg.style.color = 'var(--green)';
+    setTimeout(() => toggleAddTicker(), 1500);
+
   } catch(e) {
-    alert('Could not fetch models: ' + e.message);
+    msg.textContent = `Failed: ${e.message.slice(0, 60)}`;
+    msg.style.color = 'var(--red)';
   }
 }
 </script>
