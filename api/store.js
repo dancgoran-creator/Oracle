@@ -10,33 +10,6 @@ function send(res, status, data) {
   res.end(json);
 }
 
-async function redis(url, token, command, ...args) {
-  // Upstash REST API: POST {url}/{command}/{args...}
-  const path = [command, ...args.map(a => encodeURIComponent(a))].join('/');
-  const r = await fetch(`${url}/${path}`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await r.json();
-  if (data.error) throw new Error(data.error);
-  return data.result;
-}
-
-async function redisSet(url, token, key, value, exSeconds) {
-  // SET with EX needs POST with body
-  const r = await fetch(`${url}/set/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify([value, 'EX', exSeconds]),
-  });
-  const data = await r.json();
-  if (data.error) throw new Error(data.error);
-  return data.result;
-}
-
 const KEY = 'oracle:watchlist:v1';
 
 module.exports = async function handler(req, res) {
@@ -49,35 +22,55 @@ module.exports = async function handler(req, res) {
     return res.end();
   }
 
+  // Debug: log all env vars that mention upstash or redis (redact values)
+  const envKeys = Object.keys(process.env)
+    .filter(k => k.toLowerCase().includes('upstash') || k.toLowerCase().includes('redis') || k.toLowerCase().includes('kv'))
+    .map(k => `${k}=${process.env[k] ? '[SET]' : '[EMPTY]'}`);
+  console.log('Redis env vars found:', envKeys.join(', ') || 'NONE');
+
   const url   = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    return send(res, 500, { error: 'UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set' });
+    const msg = `Missing env vars. Found: ${envKeys.join(', ') || 'none'}`;
+    console.error(msg);
+    return send(res, 500, { error: msg });
   }
 
-  // ── GET: load ─────────────────────────────────────────────────────────────
+  // ── GET ───────────────────────────────────────────────────────────────────
   if (req.method === 'GET') {
     try {
-      const raw = await redis(url, token, 'GET', KEY);
-      if (!raw) return send(res, 200, { data: null, timestamp: null });
-      return send(res, 200, JSON.parse(raw));
+      const r = await fetch(`${url}/get/${encodeURIComponent(KEY)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.result) return send(res, 200, { data: null, timestamp: null });
+      return send(res, 200, JSON.parse(data.result));
     } catch (e) {
-      console.error('store GET:', e.message);
+      console.error('GET error:', e.message);
       return send(res, 500, { error: e.message });
     }
   }
 
-  // ── POST: save ────────────────────────────────────────────────────────────
+  // ── POST ──────────────────────────────────────────────────────────────────
   if (req.method === 'POST') {
     try {
       const { data, timestamp } = req.body || {};
       if (!data) return send(res, 400, { error: 'data required' });
+
       const payload = JSON.stringify({ data, timestamp });
-      await redisSet(url, token, KEY, payload, 172800); // 48h TTL
+
+      // SET with EX using pipeline format
+      const r = await fetch(`${url}/set/${encodeURIComponent(KEY)}/${encodeURIComponent(payload)}?EX=172800`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await r.json();
+      if (result.error) throw new Error(result.error);
       return send(res, 200, { ok: true });
     } catch (e) {
-      console.error('store POST:', e.message);
+      console.error('POST error:', e.message);
       return send(res, 500, { error: e.message });
     }
   }
