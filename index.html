@@ -312,7 +312,7 @@ function setProg(p){ $('prog').style.width=p+'%'; }
 function showErr(m){ const e=$('errBanner'); e.innerHTML='⚠ '+m; e.classList.add('visible'); }
 function clearErr(){ $('errBanner').classList.remove('visible'); }
 
-// ── GEMINI CALL ────────────────────────────────────────────────────────────
+// ── GEMINI CALLS ──────────────────────────────────────────────────────────
 async function callGemini(prompt, useSearch=false){
   const r = await fetch('/api/gemini',{
     method:'POST',
@@ -322,6 +322,17 @@ async function callGemini(prompt, useSearch=false){
   if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
   const d=await r.json();
   return d.text||'';
+}
+
+async function fetchMarketData(tickers){
+  const r = await fetch('/api/gemini',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'data', tickers}),
+  });
+  if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
+  const d=await r.json();
+  return d.data||[];
 }
 
 // ── RENDER HELPERS ─────────────────────────────────────────────────────────
@@ -487,7 +498,8 @@ Return ONLY the JSON array starting with [`;
     $('footerTs').textContent='Last refresh: '+now.toLocaleString('en-GB');
     setProg(85);
 
-    // Commentary
+    // Commentary — wait 3s to avoid back-to-back RPM hits
+    await new Promise(resolve => setTimeout(resolve, 3000));
     setStatus('Analysing signals…','loading');
     await buildCommentary(tableData);
 
