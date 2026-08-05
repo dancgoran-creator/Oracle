@@ -204,7 +204,7 @@
     <div class="welcome" id="welcome">
       <div class="welcome-glyph">◈</div>
       <h1>The Oracle</h1>
-      <p>Live market research terminal powered by Gemini 2.5 Flash + Google Search grounding. Fetches each ticker individually to stay within API rate limits. Data persists between sessions.</p>
+      <p>Market research terminal. Live prices and RSI from Yahoo Finance, analyst consensus and price targets from Gemini 3.5 Flash. Data persists between sessions and auto-refreshes at midnight.</p>
       <div class="welcome-steps">
         <div class="ws"><div class="wsn">1</div>Click Refresh</div>
         <div class="ws"><div class="wsn">2</div>Fetches 1 ticker at a time</div>
@@ -241,7 +241,7 @@
   </main>
 
   <footer>
-    <span>Powered by Gemini 3.5 Flash + Google Search grounding</span>
+    <span>Prices: Yahoo Finance (live) · Analyst data: Gemini 3.5 Flash</span>
     <span id="footerTs"></span>
     <span>Not investment advice</span>
   </footer>
@@ -387,20 +387,62 @@ function showTable(empty = false) {
   if (empty) $('tbody').innerHTML = ''; // clear ready for live row appending
 }
 
-// ── API CALL ──────────────────────────────────────────────────────────────
-async function fetchTicker(ticker) {
+// ── API CALLS ─────────────────────────────────────────────────────────────
+async function fetchYahoo(ticker) {
+  const r = await fetch('/api/yahoo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({ error: r.statusText })); throw new Error('Yahoo: ' + (e.error || r.status)); }
+  const d = await r.json();
+  if (d.error) throw new Error('Yahoo: ' + d.error);
+  return d;
+}
+
+async function fetchAnalyst(ticker) {
   const r = await fetch('/api/gemini', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'ticker', ticker }),
+    body: JSON.stringify({ mode: 'analyst', ticker }),
   });
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({ error: r.statusText }));
-    throw new Error(e.error || r.status);
-  }
+  if (!r.ok) { const e = await r.json().catch(() => ({ error: r.statusText })); throw new Error('Gemini: ' + (e.error || r.status)); }
   const d = await r.json();
-  if (d.error) throw new Error(d.error);
-  return d.ticker;
+  if (d.error) throw new Error('Gemini: ' + d.error);
+  return d.analyst;
+}
+
+async function fetchTicker(ticker) {
+  // Run both in parallel — Yahoo for live prices, Gemini for analyst data
+  const [yahoo, analyst] = await Promise.allSettled([
+    fetchYahoo(ticker),
+    fetchAnalyst(ticker),
+  ]);
+
+  const y = yahoo.status === 'fulfilled' ? yahoo.value : {};
+  const a = analyst.status === 'fulfilled' ? analyst.value : {};
+
+  if (yahoo.status === 'rejected' && analyst.status === 'rejected') {
+    throw new Error(yahoo.reason?.message || 'Both sources failed');
+  }
+
+  return {
+    ticker,
+    price:      y.price      || null,
+    currency:   y.currency   || 'USD',
+    change_pct: y.change_pct || null,
+    w52high:    y.w52high    || null,
+    w52low:     y.w52low     || null,
+    pos52w:     y.pos52w     || null,
+    rsi:        y.rsi        || null,
+    buy:        a.buy        || 0,
+    hold:       a.hold       || 0,
+    sell:       a.sell       || 0,
+    pt_low:     a.pt_low     || null,
+    pt_median:  a.pt_median  || null,
+    pt_high:    a.pt_high    || null,
+    upside_pct: a.upside_pct || null,
+  };
 }
 
 async function callGemini(prompt, useSearch=false) {
