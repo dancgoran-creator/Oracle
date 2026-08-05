@@ -228,6 +228,13 @@
             <th onclick="sortBy('pt_high')">PT High</th>
             <th onclick="sortBy('rsi')">RSI 14d</th>
             <th onclick="sortBy('pos52w')">52W Pos</th>
+            <th onclick="sortBy('sma50')">SMA 50</th>
+            <th onclick="sortBy('sma200')">SMA 200</th>
+            <th onclick="sortBy('ma_signal')" style="text-align:center">MA Signal</th>
+            <th onclick="sortBy('volume')">Volume</th>
+            <th onclick="sortBy('avg_volume')">Avg Vol</th>
+            <th onclick="sortBy('beta')">Beta</th>
+            <th onclick="sortBy('earnings_date')">Earnings</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -704,6 +711,42 @@ function buildRowHTML(ticker, r) {
   const posHtml=posV==null?'<span class="na">—</span>'
     :`<div class="bar-cell"><span style="color:${posV<20?'var(--red)':posV>80?'var(--green)':'var(--muted)'}">${posV.toFixed(1)}%</span><div class="mbar"><div class="mfill" style="width:${Math.min(posV,100)}%;background:var(--blue)"></div></div></div>`;
 
+  // MA signal badge
+  const maSignalHtml = !r.ma_signal || r.ma_signal === 'N/A' ? '<span class="na">—</span>'
+    : r.ma_signal === 'golden'  ? '<span class="cpill buy">Golden ↑</span>'
+    : r.ma_signal === 'death'   ? '<span class="cpill sell">Death ↓</span>'
+    : '<span class="na">Neutral</span>';
+
+  // Volume formatter
+  const fmtVol = v => {
+    if (!v || v === 'N/A') return '<span class="na">—</span>';
+    const n = parseInt(v);
+    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+    return n.toString();
+  };
+
+  // Vol vs avg volume comparison
+  const volClass = () => {
+    if (!r.volume || !r.avg_volume) return '';
+    const v = parseInt(r.volume), a = parseInt(r.avg_volume);
+    if (v > a * 1.5) return 'up';
+    if (v < a * 0.5) return 'down';
+    return 'neutral';
+  };
+
+  // Earnings date — highlight if within 30 days
+  const fmtEarnings = v => {
+    if (!v || v === 'N/A') return '<span class="na">—</span>';
+    const d = new Date(v);
+    const days = Math.ceil((d - new Date()) / 86400000);
+    const str = d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+    if (days >= 0 && days <= 30) return `<span class="up" title="${days}d away">⚡ ${str}</span>`;
+    if (days < 0 && days >= -7) return `<span class="neutral" title="recent">${str}</span>`;
+    return `<span class="neutral">${str}</span>`;
+  };
+
   return `<tr data-ticker="${ticker}">
     <td><span class="t-ticker">${ticker}</span></td>
     <td><span class="t-name">${wl.name||ticker}</span></td>
@@ -716,11 +759,18 @@ function buildRowHTML(ticker, r) {
     <td class="neutral">${fmtP(r.pt_high)}</td>
     <td>${rsiHtml}</td>
     <td>${posHtml}</td>
+    <td class="neutral">${fmtP(r.sma50)}</td>
+    <td class="neutral">${fmtP(r.sma200)}</td>
+    <td style="text-align:center">${maSignalHtml}</td>
+    <td class="${volClass()}">${fmtVol(r.volume)}</td>
+    <td class="neutral">${fmtVol(r.avg_volume)}</td>
+    <td class="neutral">${r.beta && r.beta !== 'N/A' ? r.beta : '<span class="na">—</span>'}</td>
+    <td>${fmtEarnings(r.earnings_date)}</td>
   </tr>`;
 }
 
 // ── SORT ─────────────────────────────────────────────────────────────────
-const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w'];
+const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w','sma50','sma200','ma_signal','volume','avg_volume','beta','earnings_date'];
 function sortBy(key) {
   sortDir = sortKey===key ? sortDir*-1 : -1; sortKey=key;
   document.querySelectorAll('th').forEach((th,i)=>{th.classList.remove('asc','desc');if(COL_KEYS[i]===key)th.classList.add(sortDir===1?'asc':'desc');});
