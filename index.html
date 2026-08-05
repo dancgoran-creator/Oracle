@@ -464,11 +464,10 @@ async function startRefresh() {
   clearErr();
   $('refreshBtn').disabled = true;
   $('commentary').classList.remove('visible');
-  setStatus('Starting refresh…', 'loading');
+  setStatus('Fetching live prices…', 'loading');
   setProg(2);
-  showTable(true); // clear table — rows will appear one by one
+  showTable(true);
 
-  // Show progress tracker
   const progDetail = $('progDetail');
   const progTickers = $('progTickers');
   const progCount = $('progCount');
@@ -478,98 +477,106 @@ async function startRefresh() {
   ).join('');
 
   const tickers = WL.map(w => w.ticker);
-  let done = 0;
-  const errors = [];
 
-  let consecutiveFails = 0;
+  // ── PHASE 1: All Yahoo calls in parallel (~3s) ────────────────────────────
+  setStatus(`Fetching ${tickers.length} live prices from Yahoo Finance…`, 'loading');
+  WL.forEach(w => { const c=$(`pt_${w.ticker}`); if(c) c.className='ptick active'; });
+
+  const yahooResults = await Promise.allSettled(
+    tickers.map(t => fetchYahoo(t))
+  );
+
+  let yahooLoaded = 0;
+  yahooResults.forEach((r, i) => {
+    const ticker = tickers[i];
+    const chip = $(`pt_${ticker}`);
+    if (r.status === 'fulfilled') {
+      tableData[ticker] = { ...tableData[ticker], ...r.value, ticker };
+      updateTableRow(ticker, tableData[ticker]);
+      if (chip) chip.className = 'ptick done';
+      yahooLoaded++;
+    } else {
+      if (chip) chip.className = 'ptick err';
+      console.warn(`Yahoo ${ticker}:`, r.reason?.message);
+    }
+  });
+
+  setProg(30);
+  setStatus(`${yahooLoaded}/${tickers.length} prices loaded — fetching analyst data…`, 'loading');
+
+  // Save Yahoo data immediately so prices persist even if Gemini fails
+  const ts1 = new Date().toISOString();
+  saveToStorage(ts1);
+  updateLastUpdated(ts1);
+
+  // ── PHASE 2: Gemini analyst calls one by one (~8s each) ──────────────────
+  // Reset chips to pending for analyst phase
+  WL.forEach(w => {
+    const c = $(`pt_${w.ticker}`);
+    if (c) c.className = 'ptick';
+  });
+
+  let analystDone = 0;
+  const analystErrors = [];
 
   for (const ticker of tickers) {
-    if (cancelFlag) {
-      setStatus('Cancelled', '');
-      break;
-    }
+    if (cancelFlag) break;
 
     const chip = $(`pt_${ticker}`);
     if (chip) chip.className = 'ptick active';
-    progCount.textContent = `${done}/${tickers.length}`;
-    const remaining = (tickers.length - done) * 20;
-    const mins = Math.ceil(remaining / 60);
-    setStatus(`Fetching ${ticker}… (${done+1}/${tickers.length}) · ~${mins}m left`, 'loading');
-    setProg(Math.round((done / tickers.length) * 90) + 2);
+    progCount.textContent = `${analystDone}/${tickers.length}`;
+    setStatus(`Analyst data: ${ticker} (${analystDone+1}/${tickers.length})`, 'loading');
+    setProg(30 + Math.round((analystDone / tickers.length) * 65));
 
-    let tickerSuccess = false;
-    let lastErr = '';
-    // Retry each ticker up to 3 times before marking as failed
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) {
-        setStatus(`Retrying ${ticker}… attempt ${attempt+1}/3`, 'loading');
-        await new Promise(r => setTimeout(r, 10000));
-      }
-      try {
-        const row = await fetchTicker(ticker);
-        row.buy  = parseInt(row.buy)  || 0;
-        row.hold = parseInt(row.hold) || 0;
-        row.sell = parseInt(row.sell) || 0;
-        tableData[ticker] = row;
-        consecutiveFails = 0;
-        updateTableRow(ticker, row);
-        if (chip) chip.className = 'ptick done';
-        tickerSuccess = true;
-        break;
-      } catch (err) {
-        lastErr = err.message;
-        console.error(`${ticker} attempt ${attempt+1} failed:`, err.message);
-      }
-    }
-
-    if (!tickerSuccess) {
-      errors.push(ticker + ': ' + lastErr.slice(0, 80));
-      consecutiveFails++;
+    try {
+      const analyst = await fetchAnalyst(ticker);
+      tableData[ticker] = {
+        ...tableData[ticker],
+        buy:        parseInt(analyst.buy)  || 0,
+        hold:       parseInt(analyst.hold) || 0,
+        sell:       parseInt(analyst.sell) || 0,
+        pt_low:     analyst.pt_low     || null,
+        pt_median:  analyst.pt_median  || null,
+        pt_high:    analyst.pt_high    || null,
+        upside_pct: analyst.upside_pct || null,
+      };
+      updateTableRow(ticker, tableData[ticker]);
+      if (chip) chip.className = 'ptick done';
+    } catch (err) {
+      analystErrors.push(ticker);
       if (chip) chip.className = 'ptick err';
-
-      // Only stop if first ticker fails all retries, or 3 consecutive ticker failures
-      if ((done === 0 && consecutiveFails >= 1) || consecutiveFails >= 3) {
-        showErr(`Stopped on ${ticker} after 3 attempts: ${lastErr.slice(0, 200)}`);
-        setStatus('Stopped — see error above', 'err');
-        $('progDetail').classList.remove('visible');
-        busy = false;
-        cancelFlag = false;
-        $('refreshBtn').disabled = false;
-        return;
-      }
+      console.warn(`Analyst ${ticker}:`, err.message);
     }
 
-    done++;
-    if (done < tickers.length && !cancelFlag) {
-      await new Promise(r => setTimeout(r, 20000)); // 20s gap — stays under Gemini spend cap // 8s gap to stay under Gemini spend rate limit
+    analystDone++;
+    if (analystDone < tickers.length && !cancelFlag) {
+      await new Promise(r => setTimeout(r, 8000));
     }
   }
 
-  // Save to storage
-  const ts = new Date().toISOString();
-  saveToStorage(ts);
-  updateLastUpdated(ts);
-  $('footerTs').textContent = 'Last refresh: ' + new Date(ts).toLocaleString('en-GB');
+  // Final save with analyst data
+  const ts2 = new Date().toISOString();
+  saveToStorage(ts2);
+  updateLastUpdated(ts2);
+  $('footerTs').textContent = 'Last refresh: ' + new Date(ts2).toLocaleString('en-GB');
 
-  setProg(95);
   progDetail.classList.remove('visible');
+  setProg(98);
 
   if (!cancelFlag) {
-    setStatus(`${done - errors.length}/${tickers.length} tickers loaded`, 'ok');
-    if (errors.length) showErr(`${errors.length} ticker(s) failed: ${errors.slice(0,3).join(' | ')}`);
-
-    // Commentary
-    setStatus('Generating signal analysis…', 'loading');
+    const msg = analystErrors.length
+      ? `${yahooLoaded} prices · ${tickers.length - analystErrors.length}/${tickers.length} analyst loaded`
+      : `All ${tickers.length} tickers fully loaded`;
+    setStatus(msg, 'ok');
     await buildCommentary();
   }
 
   setProg(100);
-  setTimeout(() => setProg(0), 800);
+  setTimeout(() => setProg(0), 1000);
   busy = false;
   cancelFlag = false;
   $('refreshBtn').disabled = false;
 }
-
 function cancelRefresh() {
   cancelFlag = true;
   $('progDetail').classList.remove('visible');
