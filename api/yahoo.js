@@ -17,8 +17,8 @@ function yahooFetch(hostname, path) {
       let raw = '';
       res.on('data', chunk => { raw += chunk; });
       res.on('end', () => {
-        try { resolve({ status: res.statusCode, data: JSON.parse(raw), raw }); }
-        catch (e) { resolve({ status: res.statusCode, data: null, raw }); }
+        try { resolve({ status: res.statusCode, data: JSON.parse(raw) }); }
+        catch (e) { resolve({ status: res.statusCode, data: null }); }
       });
     });
     req.on('error', reject);
@@ -46,10 +46,6 @@ function calcSMA(closes, period) {
   if (!closes || closes.length < period) return null;
   const slice = closes.slice(-period);
   return (slice.reduce((a, b) => a + b, 0) / period).toFixed(2);
-}
-
-function fmtN(v, dp = 2) {
-  return v != null && !isNaN(v) ? parseFloat(v).toFixed(dp) : null;
 }
 
 function send(res, status, data) {
@@ -81,90 +77,103 @@ module.exports = async function handler(req, res) {
   const sym = { 'RHM': 'RHM.DE' }[ticker] || ticker;
 
   try {
-    // Run all fetches in parallel
-    const [quoteRes, histRes] = await Promise.allSettled([
+    // All three fetches in parallel
+    const [quoteRes, histRes, detailRes] = await Promise.allSettled([
 
-      // v7/finance/quote — returns beta, avgVolume, 50d/200d MA, earnings in one shot
+      // 1. v8 chart — price, volume, 52w (proven working)
       yahooFetch('query1.finance.yahoo.com',
-        `/v7/finance/quote?symbols=${sym}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,fiftyTwoWeekHigh,fiftyTwoWeekLow,fiftyDayAverage,twoHundredDayAverage,beta,earningsTimestamp,earningsTimestampStart,earningsTimestampEnd,currency`
+        `/v8/finance/chart/${sym}?interval=1d&range=1d`
       ),
 
-      // 1 year history for RSI + SMA verification
+      // 2. v8 chart 1y history — RSI + SMA calculation
       yahooFetch('query1.finance.yahoo.com',
         `/v8/finance/chart/${sym}?interval=1d&range=1y`
       ),
+
+      // 3. v11 quoteSummary — beta, avg volume, earnings (newer endpoint, no crumb needed)
+      yahooFetch('query2.finance.yahoo.com',
+        `/v11/finance/quoteSummary/${sym}?modules=summaryDetail%2CdefaultKeyStatistics%2CcalendarEvents`
+      ),
     ]);
 
-    // ── v7 quote fields ───────────────────────────────────────────────────
-    let price = null, changePct = null, volume = null, avgVolume = null;
-    let w52high = null, w52low = null, beta = null;
-    let sma50 = null, sma200 = null, maSignal = null;
-    let earningsDate = null, currency = 'USD';
-
-    if (quoteRes.status === 'fulfilled' && quoteRes.value.data) {
-      const q = quoteRes.value.data?.quoteResponse?.result?.[0];
-      console.log(`${ticker} v7 quote fields:`, q ? Object.keys(q).join(',') : 'none');
-
-      if (q) {
-        price      = q.regularMarketPrice;
-        changePct  = q.regularMarketChangePercent?.toFixed(2) ?? null;
-        volume     = q.regularMarketVolume;
-        avgVolume  = q.averageDailyVolume3Month;
-        w52high    = q.fiftyTwoWeekHigh;
-        w52low     = q.fiftyTwoWeekLow;
-        beta       = q.beta;
-        currency   = q.currency || 'USD';
-
-        // SMA from v7 (Yahoo pre-calculates these)
-        sma50  = q.fiftyDayAverage  ? q.fiftyDayAverage.toFixed(2)   : null;
-        sma200 = q.twoHundredDayAverage ? q.twoHundredDayAverage.toFixed(2) : null;
-
-        if (sma50 && sma200) {
-          const s50 = parseFloat(sma50), s200 = parseFloat(sma200);
-          maSignal = s50 > s200 * 1.01 ? 'golden' : s50 < s200 * 0.99 ? 'death' : 'neutral';
-        }
-
-        // Earnings — Yahoo returns Unix timestamp
-        const ets = q.earningsTimestamp || q.earningsTimestampStart;
-        if (ets) {
-          const d = new Date(ets * 1000);
-          // Only use if in the future or recent past (within 3 months)
-          const diffDays = (d - new Date()) / 86400000;
-          if (diffDays > -90) earningsDate = d.toISOString().split('T')[0];
-        }
-      }
-    } else {
-      console.warn(`${ticker} v7 failed:`, quoteRes.reason?.message || quoteRes.value?.raw?.slice(0,100));
+    // ── 1. Live quote (v8 — proven) ───────────────────────────────────────
+    if (quoteRes.status !== 'fulfilled' || !quoteRes.value.data) {
+      throw new Error(`Quote fetch failed for ${sym}`);
     }
+    const chart = quoteRes.value.data?.chart?.result?.[0];
+    if (!chart) throw new Error(`No chart result for ${sym}`);
 
-    // ── Historical closes — RSI ───────────────────────────────────────────
-    let rsi = null;
-    if (histRes.status === 'fulfilled' && histRes.value.data) {
-      const closes = (histRes.value.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
-        .filter(c => c != null);
-      console.log(`${ticker} closes:`, closes.length);
-      rsi = calcRSI(closes);
-      // Use calculated SMAs if v7 didn't return them
-      if (!sma50)  sma50  = calcSMA(closes, 50);
-      if (!sma200) sma200 = calcSMA(closes, 200);
-    }
+    const meta      = chart.meta;
+    const price     = meta.regularMarketPrice;
+    const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose;
+    const currency  = meta.currency || 'USD';
+    const w52high   = meta.fiftyTwoWeekHigh;
+    const w52low    = meta.fiftyTwoWeekLow;
+    const volume    = meta.regularMarketVolume;
+
+    const changePct = prevClose
+      ? (((price - prevClose) / prevClose) * 100).toFixed(2)
+      : null;
 
     const pos52w = (price && w52high && w52low && w52high !== w52low)
       ? (((price - w52low) / (w52high - w52low)) * 100).toFixed(1)
       : null;
 
+    // ── 2. Historical closes — RSI + SMA ─────────────────────────────────
+    let rsi = null, sma50 = null, sma200 = null, maSignal = null;
+    if (histRes.status === 'fulfilled' && histRes.value.data) {
+      const closes = (histRes.value.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
+        .filter(c => c != null);
+      console.log(`${ticker} closes:`, closes.length);
+      rsi    = calcRSI(closes);
+      sma50  = calcSMA(closes, 50);
+      sma200 = calcSMA(closes, 200);
+      if (sma50 && sma200) {
+        const s50 = parseFloat(sma50), s200 = parseFloat(sma200);
+        maSignal = s50 > s200 * 1.01 ? 'golden' : s50 < s200 * 0.99 ? 'death' : 'neutral';
+      }
+    }
+
+    // ── 3. Summary detail — beta, avg vol, earnings ───────────────────────
+    let beta = null, avgVolume = null, earningsDate = null;
+    if (detailRes.status === 'fulfilled' && detailRes.value.data) {
+      const r = detailRes.value.data?.quoteSummary?.result?.[0];
+      console.log(`${ticker} summary modules:`, r ? Object.keys(r).join(',') : 'none');
+
+      if (r) {
+        // summaryDetail has beta and avgVolume
+        beta      = r.summaryDetail?.beta?.raw ?? null;
+        avgVolume = r.summaryDetail?.averageVolume?.raw
+                 || r.summaryDetail?.averageVolume10days?.raw
+                 || null;
+
+        // calendarEvents has earnings
+        const earningsDates = r.calendarEvents?.earnings?.earningsDate;
+        if (earningsDates?.length > 0) {
+          const ts = earningsDates[0]?.raw || earningsDates[0];
+          if (ts) {
+            const d = new Date(ts * 1000);
+            const diffDays = (d - new Date()) / 86400000;
+            if (diffDays > -90) earningsDate = d.toISOString().split('T')[0];
+          }
+        }
+      }
+    } else {
+      console.warn(`${ticker} detail failed:`, detailRes.reason?.message || 'no data');
+    }
+
     return send(res, 200, {
       ticker,
-      price:         fmtN(price),
+      price:         price   != null ? price.toFixed(2)   : null,
       currency,
       change_pct:    changePct,
-      w52high:       fmtN(w52high),
-      w52low:        fmtN(w52low),
+      w52high:       w52high != null ? w52high.toFixed(2) : null,
+      w52low:        w52low  != null ? w52low.toFixed(2)  : null,
       pos52w,
       rsi,
       volume:        volume    ? volume.toString()    : null,
       avg_volume:    avgVolume ? avgVolume.toString() : null,
-      beta:          fmtN(beta),
+      beta:          beta      ? parseFloat(beta).toFixed(2) : null,
       sma50,
       sma200,
       ma_signal:     maSignal,
