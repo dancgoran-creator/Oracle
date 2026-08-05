@@ -1,9 +1,9 @@
 const https = require('https');
 
-function yahooFetch(hostname, path) {
+function yahooFetch(path) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname,
+      hostname: 'query1.finance.yahoo.com',
       path,
       method: 'GET',
       headers: {
@@ -77,39 +77,50 @@ module.exports = async function handler(req, res) {
   const sym = { 'RHM': 'RHM.DE' }[ticker] || ticker;
 
   try {
-    // All three fetches in parallel
-    const [quoteRes, histRes, detailRes] = await Promise.allSettled([
-
-      // 1. v8 chart — price, volume, 52w (proven working)
-      yahooFetch('query1.finance.yahoo.com',
-        `/v8/finance/chart/${sym}?interval=1d&range=1d`
-      ),
-
-      // 2. v8 chart 1y history — RSI + SMA calculation
-      yahooFetch('query1.finance.yahoo.com',
-        `/v8/finance/chart/${sym}?interval=1d&range=1y`
-      ),
-
-      // 3. v11 quoteSummary — beta, avg volume, earnings (newer endpoint, no crumb needed)
-      yahooFetch('query2.finance.yahoo.com',
-        `/v11/finance/quoteSummary/${sym}?modules=summaryDetail%2CdefaultKeyStatistics%2CcalendarEvents`
-      ),
+    // Two fetches in parallel — quote for today, 1y history for SMAs/RSI
+    const [quoteRes, histRes] = await Promise.allSettled([
+      yahooFetch(`/v8/finance/chart/${sym}?interval=1d&range=1d`),
+      yahooFetch(`/v8/finance/chart/${sym}?interval=1d&range=1y`),
     ]);
 
-    // ── 1. Live quote (v8 — proven) ───────────────────────────────────────
+    // ── Live quote ────────────────────────────────────────────────────────
     if (quoteRes.status !== 'fulfilled' || !quoteRes.value.data) {
-      throw new Error(`Quote fetch failed for ${sym}`);
+      throw new Error(`Quote failed for ${sym}`);
     }
     const chart = quoteRes.value.data?.chart?.result?.[0];
-    if (!chart) throw new Error(`No chart result for ${sym}`);
+    if (!chart) throw new Error(`No data for ${sym}`);
 
     const meta      = chart.meta;
+    // Log ALL meta keys so we can see everything available
+    console.log(`${ticker} meta keys:`, Object.keys(meta).join(','));
+
     const price     = meta.regularMarketPrice;
     const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose;
     const currency  = meta.currency || 'USD';
     const w52high   = meta.fiftyTwoWeekHigh;
     const w52low    = meta.fiftyTwoWeekLow;
     const volume    = meta.regularMarketVolume;
+
+    // These fields exist in meta but we weren't reading them
+    const avgVolume    = meta.averageDailyVolume3Month
+                      || meta.averageDailyVolume10Day
+                      || null;
+    const beta         = meta.beta ?? null;
+    const sma50meta    = meta.fiftyDayAverage ?? null;
+    const sma200meta   = meta.twoHundredDayAverage ?? null;
+
+    // Earnings — Yahoo stores as Unix timestamp in meta
+    let earningsDate = null;
+    const ets = meta.earningsTimestamp
+             || meta.earningsTimestampStart
+             || null;
+    if (ets) {
+      const d = new Date(ets * 1000);
+      const diffDays = (d - new Date()) / 86400000;
+      if (diffDays > -90 && diffDays < 365) {
+        earningsDate = d.toISOString().split('T')[0];
+      }
+    }
 
     const changePct = prevClose
       ? (((price - prevClose) / prevClose) * 100).toFixed(2)
@@ -119,47 +130,21 @@ module.exports = async function handler(req, res) {
       ? (((price - w52low) / (w52high - w52low)) * 100).toFixed(1)
       : null;
 
-    // ── 2. Historical closes — RSI + SMA ─────────────────────────────────
+    // ── Historical closes — RSI + SMA ─────────────────────────────────────
     let rsi = null, sma50 = null, sma200 = null, maSignal = null;
     if (histRes.status === 'fulfilled' && histRes.value.data) {
       const closes = (histRes.value.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
         .filter(c => c != null);
       console.log(`${ticker} closes:`, closes.length);
-      rsi    = calcRSI(closes);
-      sma50  = calcSMA(closes, 50);
-      sma200 = calcSMA(closes, 200);
-      if (sma50 && sma200) {
-        const s50 = parseFloat(sma50), s200 = parseFloat(sma200);
-        maSignal = s50 > s200 * 1.01 ? 'golden' : s50 < s200 * 0.99 ? 'death' : 'neutral';
-      }
+      rsi = calcRSI(closes);
+      // Use pre-calculated from meta if available, else calculate
+      sma50  = sma50meta  ? sma50meta.toFixed(2)  : calcSMA(closes, 50);
+      sma200 = sma200meta ? sma200meta.toFixed(2) : calcSMA(closes, 200);
     }
 
-    // ── 3. Summary detail — beta, avg vol, earnings ───────────────────────
-    let beta = null, avgVolume = null, earningsDate = null;
-    if (detailRes.status === 'fulfilled' && detailRes.value.data) {
-      const r = detailRes.value.data?.quoteSummary?.result?.[0];
-      console.log(`${ticker} summary modules:`, r ? Object.keys(r).join(',') : 'none');
-
-      if (r) {
-        // summaryDetail has beta and avgVolume
-        beta      = r.summaryDetail?.beta?.raw ?? null;
-        avgVolume = r.summaryDetail?.averageVolume?.raw
-                 || r.summaryDetail?.averageVolume10days?.raw
-                 || null;
-
-        // calendarEvents has earnings
-        const earningsDates = r.calendarEvents?.earnings?.earningsDate;
-        if (earningsDates?.length > 0) {
-          const ts = earningsDates[0]?.raw || earningsDates[0];
-          if (ts) {
-            const d = new Date(ts * 1000);
-            const diffDays = (d - new Date()) / 86400000;
-            if (diffDays > -90) earningsDate = d.toISOString().split('T')[0];
-          }
-        }
-      }
-    } else {
-      console.warn(`${ticker} detail failed:`, detailRes.reason?.message || 'no data');
+    if (sma50 && sma200) {
+      const s50 = parseFloat(sma50), s200 = parseFloat(sma200);
+      maSignal = s50 > s200 * 1.01 ? 'golden' : s50 < s200 * 0.99 ? 'death' : 'neutral';
     }
 
     return send(res, 200, {
