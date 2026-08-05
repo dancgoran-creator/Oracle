@@ -9,11 +9,9 @@ async function callGemini(apiKey, prompt, useSearch) {
   };
   if (useSearch) body.tools = [{ google_search: {} }];
 
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) {
-      const wait = attempt * 15000;
-      console.log(`Retry ${attempt + 1} — waiting ${wait}ms`);
-      await sleep(wait);
+      await sleep(attempt * 10000);
     }
     const res = await fetch(url, {
       method: 'POST',
@@ -23,81 +21,87 @@ async function callGemini(apiKey, prompt, useSearch) {
     if (res.status === 429) { await res.text(); continue; }
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Gemini ${res.status}: ${err.slice(0, 300)}`);
+      throw new Error(`Gemini ${res.status}: ${err.slice(0, 200)}`);
     }
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
-  throw new Error('Rate limited after 5 retries.');
+  throw new Error('Rate limited after 3 retries.');
+}
+
+function send(res, status, data) {
+  const json = JSON.stringify(data);
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(json),
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  });
+  res.end(json);
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+    return res.end();
+  }
 
   const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY not set' });
+  if (!apiKey) return send(res, 500, { error: 'GOOGLE_AI_API_KEY not set' });
 
-  // ── GET: list models ─────────────────────────────────────────────────────
+  // GET — list models
   if (req.method === 'GET') {
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       const data = await r.json();
       const models = (data.models || []).map(m => m.name);
-      return res.status(200).json({ models });
+      return send(res, 200, { models });
     } catch (e) {
-      return res.status(500).json({ error: e.message });
+      return send(res, 500, { error: e.message });
     }
   }
 
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
 
   const body = req.body || {};
   const { mode, ticker, prompt, useSearch } = body;
 
-  console.log('Request:', JSON.stringify({ mode, ticker: ticker || null, hasPrompt: !!prompt }));
+  console.log('gemini req:', mode, ticker || '', !!prompt);
 
-  // ── single ticker ────────────────────────────────────────────────────────
+  // Single ticker
   if (mode === 'ticker' && ticker) {
-    const p = `Search Google for current stock market data for ${ticker} and return ONLY a raw JSON object. No markdown, no backticks, no explanation. Start with { and end with }.
-
-Required keys (all as strings):
-"ticker": "${ticker}"
-"price": current price e.g. "182.50"
-"currency": "USD" or "EUR" (RHM only = EUR)
-"change_pct": today % change e.g. "1.23" or "-0.45"
-"buy": analyst buy count e.g. "18"
-"hold": analyst hold count e.g. "5"
-"sell": analyst sell count e.g. "2"
-"pt_low": 12-month price target low e.g. "150.00"
-"pt_median": 12-month price target median e.g. "210.00"
-"pt_high": 12-month price target high e.g. "280.00"
-"upside_pct": % upside to median PT e.g. "15.4"
-"rsi": 14-day RSI e.g. "58.3"
-"pos52w": 52-week position 0-100 e.g. "67.2"
-
-No $ £ € % signs in values. Use "N/A" if unavailable. Return ONLY the JSON object.`;
+    const p = `Search Google for current stock market data for ${ticker} and return ONLY a raw JSON object. No markdown, no backticks. Start with { end with }.
+Keys (all strings): ticker, price, currency, change_pct, buy, hold, sell, pt_low, pt_median, pt_high, upside_pct, rsi, pos52w
+- price: e.g. "182.50", currency: "USD" or "EUR" (RHM=EUR only)
+- buy/hold/sell: analyst counts e.g. "18"
+- pt_low/pt_median/pt_high: price targets e.g. "210.00"
+- upside_pct: e.g. "15.4", rsi: e.g. "58.3", pos52w: 0-100 e.g. "67.2"
+No $ £ € % in values. Use "N/A" if unavailable. Return ONLY the JSON object.`;
 
     try {
       const raw = await callGemini(apiKey, p, true);
       const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`No JSON for ${ticker}. Got: ${raw.slice(0, 150)}`);
+      if (!match) throw new Error(`No JSON for ${ticker}`);
       const obj = JSON.parse(match[0]);
-      return res.status(200).json({ ticker: obj });
+      return send(res, 200, { ticker: obj });
     } catch (err) {
-      console.error(`${ticker} failed:`, err.message);
-      return res.status(500).json({ error: err.message });
+      console.error(ticker, err.message);
+      return send(res, 500, { error: err.message });
     }
   }
 
-  // ── commentary ───────────────────────────────────────────────────────────
-  if (!prompt) return res.status(400).json({ error: `No prompt. mode=${mode} ticker=${ticker}` });
+  // Commentary
+  if (!prompt) return send(res, 400, { error: `No prompt. mode=${mode}` });
   try {
     const text = await callGemini(apiKey, prompt, useSearch || false);
-    return res.status(200).json({ text });
+    return send(res, 200, { text });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return send(res, 500, { error: err.message });
   }
 };
