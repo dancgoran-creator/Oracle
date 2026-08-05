@@ -7,8 +7,9 @@ function yahooFetch(path) {
       path,
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Oracle/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
     };
     const req = https.request(options, (res) => {
@@ -20,12 +21,11 @@ function yahooFetch(path) {
       });
     });
     req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error('Timeout')); });
     req.end();
   });
 }
 
-// RSI-14 from closes oldest→newest
 function calcRSI(closes) {
   if (!closes || closes.length < 15) return null;
   const slice = closes.slice(-15);
@@ -41,12 +41,10 @@ function calcRSI(closes) {
   return (100 - 100 / (1 + avgGain / avgLoss)).toFixed(1);
 }
 
-// Simple moving average from last N closes
 function calcSMA(closes, period) {
   if (!closes || closes.length < period) return null;
   const slice = closes.slice(-period);
-  const avg = slice.reduce((a, b) => a + b, 0) / period;
-  return avg.toFixed(2);
+  return (slice.reduce((a, b) => a + b, 0) / period).toFixed(2);
 }
 
 function send(res, status, data) {
@@ -78,13 +76,23 @@ module.exports = async function handler(req, res) {
   const yahooSymbol = { 'RHM': 'RHM.DE' }[ticker] || ticker;
 
   try {
-    // ── 1. Quote (price, meta fields) ────────────────────────────────────
-    const quoteRes = await yahooFetch(
-      `/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d&includePrePost=false`
-    );
-    if (quoteRes.status !== 200) throw new Error(`Yahoo quote ${quoteRes.status}`);
+    // Run all three fetches in parallel
+    const [quoteRes, histRes, summaryRes] = await Promise.allSettled([
 
-    const chart = quoteRes.data?.chart?.result?.[0];
+      // 1. Live quote
+      yahooFetch(`/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`),
+
+      // 2. 1 year history — enough for 200d SMA + RSI
+      yahooFetch(`/v8/finance/chart/${yahooSymbol}?interval=1d&range=1y`),
+
+      // 3. Quote summary — beta, avg volume, earnings date
+      yahooFetch(`/v10/finance/quoteSummary/${yahooSymbol}?modules=defaultKeyStatistics,calendarEvents,summaryDetail`),
+    ]);
+
+    // ── Quote ────────────────────────────────────────────────────────────
+    const chart  = quoteRes.status === 'fulfilled'
+      ? quoteRes.value.data?.chart?.result?.[0]
+      : null;
     if (!chart) throw new Error(`No quote data for ${yahooSymbol}`);
 
     const meta      = chart.meta;
@@ -94,80 +102,67 @@ module.exports = async function handler(req, res) {
     const w52high   = meta.fiftyTwoWeekHigh;
     const w52low    = meta.fiftyTwoWeekLow;
     const volume    = meta.regularMarketVolume;
-    const avgVolume = meta.averageDailyVolume3Month || meta.averageDailyVolume10Day;
-    const beta      = meta.beta ?? null;
-
-    const changePct = prevClose
-      ? (((price - prevClose) / prevClose) * 100).toFixed(2)
+    const changePct = prevClose ? (((price - prevClose) / prevClose) * 100).toFixed(2) : null;
+    const pos52w    = (price && w52high && w52low && w52high !== w52low)
+      ? (((price - w52low) / (w52high - w52low)) * 100).toFixed(1)
       : null;
 
-    let pos52w = null;
-    if (price && w52high && w52low && w52high !== w52low) {
-      pos52w = (((price - w52low) / (w52high - w52low)) * 100).toFixed(1);
-    }
-
-    // ── 2. Historical — 6 months for 200d SMA + RSI ──────────────────────
-    const histRes = await yahooFetch(
-      `/v8/finance/chart/${yahooSymbol}?interval=1d&range=6mo`
-    );
-
+    // ── Historical closes ────────────────────────────────────────────────
     let rsi = null, sma50 = null, sma200 = null, maSignal = null;
-
-    if (histRes.status === 200) {
-      const closes = (histRes.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
+    if (histRes.status === 'fulfilled') {
+      const closes = (histRes.value.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
         .filter(c => c != null);
-
+      console.log(`${ticker} closes count:`, closes.length);
       rsi    = calcRSI(closes);
       sma50  = calcSMA(closes, 50);
       sma200 = calcSMA(closes, 200);
-
-      // Moving average signal
       if (sma50 && sma200) {
-        const s50 = parseFloat(sma50);
-        const s200 = parseFloat(sma200);
-        if (s50 > s200 * 1.02) maSignal = 'golden';       // 50d >2% above 200d
-        else if (s50 < s200 * 0.98) maSignal = 'death';   // 50d >2% below 200d
-        else maSignal = 'neutral';
+        const s50 = parseFloat(sma50), s200 = parseFloat(sma200);
+        maSignal = s50 > s200 * 1.01 ? 'golden' : s50 < s200 * 0.99 ? 'death' : 'neutral';
       }
     }
 
-    // ── 3. Earnings date — quoteSummary calendarEvents ───────────────────
-    let earningsDate = null;
-    try {
-      const earningsRes = await yahooFetch(
-        `/v10/finance/quoteSummary/${yahooSymbol}?modules=calendarEvents`
-      );
-      if (earningsRes.status === 200) {
-        const events = earningsRes.data?.quoteSummary?.result?.[0]?.calendarEvents;
-        const dates  = events?.earnings?.earningsDate;
-        if (dates && dates.length > 0) {
-          // Yahoo returns Unix timestamps
-          const next = dates[0]?.raw || dates[0];
-          if (next) {
-            const d = new Date(next * 1000);
-            earningsDate = d.toISOString().split('T')[0]; // YYYY-MM-DD
-          }
+    // ── Quote summary (beta, avg vol, earnings) ──────────────────────────
+    let beta = null, avgVolume = null, earningsDate = null;
+    if (summaryRes.status === 'fulfilled') {
+      const result = summaryRes.value.data?.quoteSummary?.result?.[0];
+      console.log(`${ticker} summary keys:`, result ? Object.keys(result).join(',') : 'none');
+
+      // Beta — in defaultKeyStatistics
+      beta = result?.defaultKeyStatistics?.beta?.raw ?? null;
+
+      // Avg volume — in summaryDetail
+      avgVolume = result?.summaryDetail?.averageVolume?.raw
+        || result?.summaryDetail?.averageVolume10days?.raw
+        || null;
+
+      // Earnings date — in calendarEvents
+      const earningsDates = result?.calendarEvents?.earnings?.earningsDate;
+      if (earningsDates && earningsDates.length > 0) {
+        const raw = earningsDates[0]?.raw || earningsDates[0];
+        if (raw) {
+          earningsDate = new Date(raw * 1000).toISOString().split('T')[0];
         }
       }
-    } catch (e) {
-      console.warn(`Earnings date for ${ticker}:`, e.message);
+    } else {
+      console.warn(`${ticker} summary failed:`, summaryRes.reason?.message);
     }
 
     return send(res, 200, {
       ticker,
-      price:       price     ? price.toFixed(2)     : null,
+      price:         price     ? price.toFixed(2)    : null,
       currency,
-      change_pct:  changePct,
-      w52high:     w52high   ? w52high.toFixed(2)   : null,
-      w52low:      w52low    ? w52low.toFixed(2)     : null,
+      change_pct:    changePct,
+      w52high:       w52high   ? w52high.toFixed(2)  : null,
+      w52low:        w52low    ? w52low.toFixed(2)   : null,
       pos52w,
       rsi,
-      volume:      volume    ? volume.toString()     : null,
-      avg_volume:  avgVolume ? avgVolume.toString()  : null,
-      beta:        beta      ? beta.toFixed(2)       : null,
+      volume:        volume    ? volume.toString()   : null,
+      avg_volume:    avgVolume ? avgVolume.toString(): null,
+      beta:          beta      ? beta.toFixed(2)     : null,
       sma50,
       sma200,
-      ma_signal:   maSignal,
+      ma_signal:     maSignal,
       earnings_date: earningsDate,
     });
 
