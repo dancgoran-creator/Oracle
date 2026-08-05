@@ -28,8 +28,8 @@ module.exports = async function handler(req, res) {
     .map(k => `${k}=${process.env[k] ? '[SET]' : '[EMPTY]'}`);
   console.log('Redis env vars found:', envKeys.join(', ') || 'NONE');
 
-  const url   = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url   = process.env.oracle_KV_REST_API_URL;
+  const token = process.env.oracle_KV_REST_API_TOKEN;
 
   if (!url || !token) {
     const msg = `Missing env vars. Found: ${envKeys.join(', ') || 'none'}`;
