@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   const { prompt, useSearch } = req.body;
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
