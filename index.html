@@ -486,7 +486,7 @@ async function startRefresh() {
 
     done++;
     if (done < tickers.length && !cancelFlag) {
-      await new Promise(r => setTimeout(r, 8000)); // 8s gap to stay under Gemini spend rate limit
+      await new Promise(r => setTimeout(r, 15000)); // 15s gap between requests // 8s gap to stay under Gemini spend rate limit
     }
   }
 
