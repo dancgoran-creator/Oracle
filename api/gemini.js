@@ -31,6 +31,22 @@ async function callGemini(apiKey, prompt, useSearch) {
   throw new Error('Rate limited after 4 retries.');
 }
 
+// Parse body manually — handles cases where Vercel doesn't auto-parse
+async function parseBody(req) {
+  // Already parsed by Vercel
+  if (req.body && typeof req.body === 'object') return req.body;
+  // Raw stream — read and parse manually
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => {
+      try { resolve(JSON.parse(data)); }
+      catch (e) { reject(new Error('Invalid JSON body')); }
+    });
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -41,7 +57,16 @@ export default async function handler(req, res) {
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY not set' });
 
-  const { mode, ticker, prompt, useSearch } = req.body;
+  let body;
+  try {
+    body = await parseBody(req);
+  } catch (e) {
+    return res.status(400).json({ error: 'Could not parse request body: ' + e.message });
+  }
+
+  const { mode, ticker, prompt, useSearch } = body;
+
+  console.log('Request body:', JSON.stringify({ mode, ticker: ticker || null, hasPrompt: !!prompt }));
 
   // ── MODE: single ticker ──────────────────────────────────────────────────
   if (mode === 'ticker' && ticker) {
@@ -67,8 +92,8 @@ Return ONLY the JSON object starting with {`;
 
     try {
       const raw = await callGemini(apiKey, p, true);
-      const match = raw.match(/\{[\s\S]*?\}/);
-      if (!match) throw new Error(`No JSON for ${ticker}`);
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error(`No JSON object found for ${ticker}. Raw: ${raw.slice(0,100)}`);
       const obj = JSON.parse(match[0]);
       return res.status(200).json({ ticker: obj });
     } catch (err) {
@@ -77,8 +102,10 @@ Return ONLY the JSON object starting with {`;
     }
   }
 
-  // ── MODE: commentary ─────────────────────────────────────────────────────
-  if (!prompt) return res.status(400).json({ error: 'prompt required' });
+  // ── MODE: commentary / deep dive ─────────────────────────────────────────
+  if (!prompt) {
+    return res.status(400).json({ error: `prompt or tickers required — received mode="${mode}", ticker="${ticker}"` });
+  }
   try {
     const text = await callGemini(apiKey, prompt, useSearch || false);
     return res.status(200).json({ text });
