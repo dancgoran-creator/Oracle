@@ -297,13 +297,35 @@ let cancelFlag   = false;
 let midnightTimer = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  loadFromStorage();
+window.addEventListener('load', async () => {
+  await loadFromStorage();
   scheduleMidnight();
 });
 
 // ── STORAGE ───────────────────────────────────────────────────────────────
-function loadFromStorage() {
+// Load from server (Upstash) — falls back to localStorage
+async function loadFromStorage() {
+  // Try server first
+  try {
+    const r = await fetch('/api/store');
+    if (r.ok) {
+      const saved = await r.json();
+      if (saved && saved.data && Object.keys(saved.data).length > 0) {
+        tableData = saved.data;
+        const ts = saved.timestamp;
+        // Also update localStorage
+        localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+        renderTable();
+        showTable();
+        updateLastUpdated(ts);
+        $('footerTs').textContent = 'Last refresh: ' + new Date(ts).toLocaleString('en-GB');
+        setStatus(`${Object.keys(tableData).length} tickers restored`, 'ok');
+        return;
+      }
+    }
+  } catch(e) { console.warn('Server load failed, trying localStorage:', e); }
+
+  // Fallback to localStorage
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return;
@@ -316,13 +338,22 @@ function loadFromStorage() {
       updateLastUpdated(ts);
       $('footerTs').textContent = 'Last refresh: ' + new Date(ts).toLocaleString('en-GB');
     }
-  } catch(e) { console.warn('Storage load failed:', e); }
+  } catch(e) { console.warn('localStorage load failed:', e); }
 }
 
-function saveToStorage(ts) {
+async function saveToStorage(ts) {
+  const payload = { data: tableData, timestamp: ts };
+  // Save locally immediately
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(payload)); }
+  catch(e) { console.warn('localStorage save failed:', e); }
+  // Save to server (non-blocking)
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ data: tableData, timestamp: ts }));
-  } catch(e) { console.warn('Storage save failed:', e); }
+    await fetch('/api/store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch(e) { console.warn('Server save failed:', e); }
 }
 
 function clearData() {
