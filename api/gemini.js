@@ -63,16 +63,16 @@ module.exports = async function handler(req, res) {
 
   // ── Analyst mode ─────────────────────────────────────────────────────────
   if (mode === 'analyst' && ticker) {
-    const p = `Analyst data for ${ticker}. Respond with ONLY this JSON (no markdown, no backticks):
-{"ticker":"${ticker}","buy":"18","hold":"5","sell":"2","pt_low":"150.00","pt_median":"210.00","pt_high":"280.00","upside_pct":"15.4","earnings_date":"2025-10-30"}
-Replace values with real data for ${ticker}. earnings_date = next earnings date as YYYY-MM-DD. Use N/A if unknown.`;
+    const p = `Price targets for stock ${ticker}. Respond with ONLY this JSON (no markdown, no backticks):
+{"ticker":"${ticker}","pt_low":"150.00","pt_median":"210.00","pt_high":"280.00"}
+Replace values with real 12-month analyst price targets for ${ticker}. Use N/A if unknown.`;
 
     try {
       const raw = await callGemini(p);
       console.log('raw:', raw.slice(0, 200));
       const match = raw.match(/\{[^{}]*\}/);
       if (!match) throw new Error('No JSON. Got: ' + raw.slice(0, 120));
-      return send(res, 200, { analyst: JSON.parse(match[0]) });
+      return send(res, 200, { targets: JSON.parse(match[0]) });
     } catch (err) {
       console.error('analyst error:', err.message);
       return send(res, 500, { error: err.message });
