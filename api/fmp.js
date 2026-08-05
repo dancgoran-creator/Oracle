@@ -1,4 +1,7 @@
-const FMP_BASE = 'https://financialmodelingprep.com/api';
+// FMP Stable API proxy
+// All endpoints use https://financialmodelingprep.com/stable/
+
+const FMP_BASE = 'https://financialmodelingprep.com/stable';
 
 function buildUrl(path, params = {}) {
   const apiKey = process.env.FMP_API_KEY;
@@ -12,15 +15,31 @@ function buildUrl(path, params = {}) {
 
 async function fmpFetch(path, params = {}) {
   const url = buildUrl(path, params);
-  // Log the URL (key will be visible in Vercel logs — rotate key if concerned)
-  console.log('FMP request:', url.replace(process.env.FMP_API_KEY, 'REDACTED'));
+  console.log('FMP →', path, params);
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.error('FMP error body:', body.slice(0, 300));
+    console.error('FMP error:', res.status, body.slice(0, 200));
     throw new Error(`FMP ${res.status} on ${path}: ${body.slice(0, 120)}`);
   }
-  return res.json();
+  const data = await res.json();
+  return data;
+}
+
+// RSI-14 from array of closes (oldest → newest)
+function calcRSI(closes) {
+  if (closes.length < 15) return null;
+  const slice = closes.slice(-15); // last 15
+  let gains = 0, losses = 0;
+  for (let i = 1; i < slice.length; i++) {
+    const diff = slice[i] - slice[i - 1];
+    if (diff >= 0) gains += diff; else losses += Math.abs(diff);
+  }
+  const n = slice.length - 1;
+  const avgGain = gains / n;
+  const avgLoss = losses / n;
+  if (avgLoss === 0) return '100';
+  return (100 - 100 / (1 + avgGain / avgLoss)).toFixed(1);
 }
 
 export default async function handler(req, res) {
@@ -34,103 +53,118 @@ export default async function handler(req, res) {
   if (!tickers || !Array.isArray(tickers)) {
     return res.status(400).json({ error: 'tickers array required' });
   }
-
-  const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'FMP_API_KEY not set' });
+  if (!process.env.FMP_API_KEY) {
+    return res.status(500).json({ error: 'FMP_API_KEY not configured' });
+  }
 
   try {
     const symbols = tickers.join(',');
 
-    // Fetch all three endpoints in parallel
-    const [quotes, targets, ratings] = await Promise.all([
-      fmpFetch(`/v3/quote/${symbols}`),
-      fmpFetch(`/v4/price-target-consensus`, { symbol: symbols }),
-      fmpFetch(`/v3/analyst-stock-recommendations/${symbols}`, { limit: 1 }),
+    // ── 1. Batch quote (prices, day%, 52W high/low) ──────────────────────
+    const quotes = await fmpFetch('/batch-quote', { symbols });
+
+    // ── 2. Price targets + analyst ratings — per ticker in parallel ──────
+    // stable endpoint is per-symbol for these
+    const [targetResults, ratingResults, histResults] = await Promise.all([
+
+      // Price target consensus — one call per ticker
+      Promise.allSettled(
+        tickers.map(t =>
+          fmpFetch('/price-target-consensus', { symbol: t })
+            .then(d => ({ ticker: t, data: Array.isArray(d) ? d[0] : d }))
+            .catch(e => ({ ticker: t, data: null, error: e.message }))
+        )
+      ),
+
+      // Analyst grades summary (buy/hold/sell counts)
+      Promise.allSettled(
+        tickers.map(t =>
+          fmpFetch('/grades-consensus', { symbol: t })
+            .then(d => ({ ticker: t, data: Array.isArray(d) ? d[0] : d }))
+            .catch(e => ({ ticker: t, data: null, error: e.message }))
+        )
+      ),
+
+      // Historical daily prices for RSI (last 30 trading days)
+      Promise.allSettled(
+        tickers.map(t =>
+          fmpFetch('/historical-price-eod/light', { symbol: t, limit: 30 })
+            .then(d => ({ ticker: t, data: Array.isArray(d) ? d : [] }))
+            .catch(e => ({ ticker: t, data: [], error: e.message }))
+        )
+      ),
     ]);
 
-    // Historical prices for RSI — batch all tickers in parallel
-    const histResults = await Promise.allSettled(
-      tickers.map(t =>
-        fmpFetch(`/v3/historical-price-full/${t}`, { timeseries: 30 })
-          .then(d => ({ ticker: t, data: d?.historical || [] }))
-      )
-    );
-
-    const histMap = {};
-    for (const r of histResults) {
-      if (r.status === 'fulfilled') {
-        histMap[r.value.ticker] = r.value.data;
-      }
-    }
-
-    // Index quotes by symbol
+    // ── Index results by ticker ──────────────────────────────────────────
     const quoteMap = {};
     for (const q of (Array.isArray(quotes) ? quotes : [])) {
       quoteMap[q.symbol] = q;
     }
 
-    // Index price targets by symbol
     const targetMap = {};
-    for (const t of (Array.isArray(targets) ? targets : [])) {
-      targetMap[t.symbol] = t;
+    for (const r of targetResults) {
+      if (r.status === 'fulfilled' && r.value.data) {
+        targetMap[r.value.ticker] = r.value.data;
+      }
     }
 
-    // Sum analyst ratings (most recent batch)
     const ratingsMap = {};
-    for (const r of (Array.isArray(ratings) ? ratings : [])) {
-      const sym = r.symbol;
-      if (!ratingsMap[sym]) ratingsMap[sym] = { buy: 0, hold: 0, sell: 0 };
-      ratingsMap[sym].buy  += (r.analystRatingsbuy  || 0);
-      ratingsMap[sym].hold += (r.analystRatingsHold || 0);
-      ratingsMap[sym].sell += (r.analystRatingsSell || 0);
+    for (const r of ratingResults) {
+      if (r.status === 'fulfilled' && r.value.data) {
+        ratingsMap[r.value.ticker] = r.value.data;
+      }
     }
 
-    // Build per-ticker result
+    const histMap = {};
+    for (const r of histResults) {
+      if (r.status === 'fulfilled') {
+        // FMP returns newest first — reverse for RSI calc (oldest→newest)
+        histMap[r.value.ticker] = (r.value.data || []).map(d => d.close).reverse();
+      }
+    }
+
+    // ── Build per-ticker result ──────────────────────────────────────────
     const result = tickers.map(ticker => {
       const q  = quoteMap[ticker]  || {};
       const t  = targetMap[ticker] || {};
       const ra = ratingsMap[ticker] || {};
-      const hist = histMap[ticker]  || [];
+      const closes = histMap[ticker] || [];
 
-      // 52-week position %
       const price   = q.price    ?? null;
       const w52high = q.yearHigh  ?? null;
       const w52low  = q.yearLow   ?? null;
+
+      // 52-week position %
       let pos52w = null;
       if (price != null && w52high && w52low && w52high !== w52low) {
         pos52w = (((price - w52low) / (w52high - w52low)) * 100).toFixed(1);
       }
 
-      // RSI-14 from last 15 closes (simple Wilder method)
-      let rsi = null;
-      if (hist.length >= 15) {
-        const closes = hist.slice(0, 15).map(d => d.close).reverse();
-        let gains = 0, losses = 0;
-        for (let i = 1; i < closes.length; i++) {
-          const diff = closes[i] - closes[i - 1];
-          if (diff >= 0) gains += diff; else losses += Math.abs(diff);
-        }
-        const periods = closes.length - 1;
-        const avgGain = gains / periods;
-        const avgLoss = losses / periods;
-        rsi = avgLoss === 0 ? '100' : (100 - 100 / (1 + avgGain / avgLoss)).toFixed(1);
-      }
+      // Price targets — stable API field names
+      const ptLow    = t.priceTargetLow    ?? t.targetLow    ?? null;
+      const ptMedian = t.priceTargetMedian ?? t.targetMedian ?? t.priceTarget ?? null;
+      const ptHigh   = t.priceTargetHigh   ?? t.targetHigh   ?? null;
+
+      // Analyst ratings — stable grades-consensus field names
+      const buy  = ra.strongBuy  != null ? (ra.strongBuy  + (ra.buy  || 0)) : (ra.buy  || 0);
+      const hold = ra.hold       || 0;
+      const sell = ra.strongSell != null ? (ra.strongSell + (ra.sell || 0)) : (ra.sell || 0);
 
       return {
         ticker,
-        price:      price != null ? price.toFixed(2) : null,
+        price:      price     != null ? price.toFixed(2)              : null,
         currency:   q.currency || (ticker === 'RHM' ? 'EUR' : 'USD'),
         change_pct: q.changesPercentage != null ? q.changesPercentage.toFixed(2) : null,
-        pt_low:     t.priceTargetLow     != null ? Number(t.priceTargetLow).toFixed(2)     : null,
-        pt_median:  t.priceTargetAverage != null ? Number(t.priceTargetAverage).toFixed(2) : null,
-        pt_high:    t.priceTargetHigh    != null ? Number(t.priceTargetHigh).toFixed(2)    : null,
-        upside_pct: (price && t.priceTargetAverage)
-          ? (((t.priceTargetAverage - price) / price) * 100).toFixed(1)
+        pt_low:     ptLow    != null ? Number(ptLow).toFixed(2)    : null,
+        pt_median:  ptMedian != null ? Number(ptMedian).toFixed(2) : null,
+        pt_high:    ptHigh   != null ? Number(ptHigh).toFixed(2)   : null,
+        upside_pct: (price && ptMedian)
+          ? (((Number(ptMedian) - price) / price) * 100).toFixed(1)
           : null,
-        buy:   ra.buy  || 0,
-        hold:  ra.hold || 0,
-        sell:  ra.sell || 0,
-        rsi,
+        buy,
+        hold,
+        sell,
+        rsi:    calcRSI(closes),
         pos52w,
         w52high: w52high != null ? w52high.toFixed(2) : null,
         w52low:  w52low  != null ? w52low.toFixed(2)  : null,
