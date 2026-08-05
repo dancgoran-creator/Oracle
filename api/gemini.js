@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY not set' });
 
-  const { prompt } = req.body;
+  const { prompt, useSearch } = req.body;
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
   try {
@@ -17,10 +17,15 @@ export default async function handler(req, res) {
     const body = {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
+        temperature: 0.1,
+        maxOutputTokens: 8192,
       },
     };
+
+    // Attach Google Search grounding when requested
+    if (useSearch) {
+      body.tools = [{ google_search: {} }];
+    }
 
     const upstream = await fetch(url, {
       method: 'POST',
@@ -30,7 +35,8 @@ export default async function handler(req, res) {
 
     if (!upstream.ok) {
       const err = await upstream.text();
-      return res.status(upstream.status).json({ error: err });
+      console.error('Gemini error:', upstream.status, err.slice(0, 300));
+      return res.status(upstream.status).json({ error: err.slice(0, 200) });
     }
 
     const data = await upstream.json();
@@ -38,7 +44,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ text });
 
   } catch (err) {
-    console.error('Gemini error:', err);
+    console.error('Gemini handler error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
