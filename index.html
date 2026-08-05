@@ -8,272 +8,177 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:         #0c0c0e;
-      --surface:    #13131a;
-      --surface2:   #1a1a24;
-      --surface3:   #20202c;
-      --border:     rgba(255,255,255,0.06);
-      --border-md:  rgba(255,255,255,0.11);
-      --text:       #e2e2ea;
-      --muted:      #64647a;
-      --subtle:     #2e2e3e;
-      --blue:       #5b9bff;
-      --blue-dim:   rgba(91,155,255,0.1);
-      --green:      #3dd68c;
-      --green-dim:  rgba(61,214,140,0.1);
-      --red:        #ff6b6b;
-      --red-dim:    rgba(255,107,107,0.1);
-      --amber:      #ffb84d;
-      --amber-dim:  rgba(255,184,77,0.1);
-      --purple:     #a78bfa;
-      --radius:     6px;
-      --font-mono:  'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      --bg:        #0c0c0e;
+      --surface:   #13131a;
+      --surface2:  #1a1a24;
+      --surface3:  #20202c;
+      --border:    rgba(255,255,255,0.06);
+      --border-md: rgba(255,255,255,0.11);
+      --text:      #e2e2ea;
+      --muted:     #64647a;
+      --subtle:    #2e2e3e;
+      --blue:      #5b9bff;
+      --blue-dim:  rgba(91,155,255,0.1);
+      --green:     #3dd68c;
+      --green-dim: rgba(61,214,140,0.1);
+      --red:       #ff6b6b;
+      --red-dim:   rgba(255,107,107,0.1);
+      --amber:     #ffb84d;
+      --amber-dim: rgba(255,184,77,0.1);
+      --purple:    #a78bfa;
+      --radius:    6px;
+      --font:      'JetBrains Mono','Fira Code',ui-monospace,monospace;
     }
 
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
+    html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--font); font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; }
 
-    /* ── LAYOUT ── */
-    .shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .shell { min-height:100vh; display:flex; flex-direction:column; }
 
-    /* ── TOPBAR ── */
+    /* TOPBAR */
     .topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; height: 48px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; z-index: 20;
-      gap: 12px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 20px; height:48px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:20; gap:12px;
     }
-
-    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-
+    .brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
     .brand-logo {
-      width: 26px; height: 26px; border-radius: 5px;
-      background: linear-gradient(135deg, #5b9bff 0%, #a78bfa 100%);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -1px;
+      width:26px; height:26px; border-radius:5px;
+      background:linear-gradient(135deg,#5b9bff 0%,#a78bfa 100%);
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:800; color:#fff;
     }
-
-    .brand-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.04em; }
-    .brand-sep  { color: var(--subtle); }
-    .brand-sub  { font-size: 11px; color: var(--muted); }
-
-    .topbar-center {
-      flex: 1;
-      display: flex; align-items: center; justify-content: center;
-      gap: 4px;
-    }
-
-    .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .brand-name { font-size:13px; font-weight:600; letter-spacing:.04em; }
+    .brand-sep  { color:var(--subtle); }
+    .brand-sub  { font-size:11px; color:var(--muted); }
+    .topbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 
     .status-pill {
-      display: flex; align-items: center; gap: 6px;
-      padding: 3px 10px; border-radius: 20px;
-      background: var(--surface2); border: 1px solid var(--border);
-      font-size: 10px; color: var(--muted);
-      transition: all 0.2s;
+      display:flex; align-items:center; gap:6px;
+      padding:3px 10px; border-radius:20px;
+      background:var(--surface2); border:1px solid var(--border);
+      font-size:10px; color:var(--muted); transition:all .2s;
     }
-    .status-pill.loading { border-color: rgba(255,184,77,0.3); color: var(--amber); }
-    .status-pill.ok      { border-color: rgba(61,214,140,0.3); color: var(--green); }
-    .status-pill.err     { border-color: rgba(255,107,107,0.3); color: var(--red); }
-
-    .status-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--muted); flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .loading .status-dot { background: var(--amber); animation: pulse 1s infinite; }
-    .ok  .status-dot     { background: var(--green); }
-    .err .status-dot     { background: var(--red); }
+    .status-pill.loading { border-color:rgba(255,184,77,.3); color:var(--amber); }
+    .status-pill.ok      { border-color:rgba(61,214,140,.3);  color:var(--green); }
+    .status-pill.err     { border-color:rgba(255,107,107,.3); color:var(--red);   }
+    .sdot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background .2s; }
+    .loading .sdot { background:var(--amber); animation:pulse 1s infinite; }
+    .ok  .sdot     { background:var(--green); }
+    .err .sdot     { background:var(--red);   }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-    /* ── BUTTONS ── */
+    /* BUTTONS */
     .btn {
-      font-family: var(--font-mono); font-size: 11px; cursor: pointer;
-      border-radius: var(--radius); border: 1px solid var(--border-md);
-      background: transparent; color: var(--muted);
-      padding: 5px 12px;
-      display: inline-flex; align-items: center; gap: 5px;
-      transition: background .12s, color .12s, border-color .12s;
-      white-space: nowrap;
+      font-family:var(--font); font-size:11px; cursor:pointer;
+      border-radius:var(--radius); border:1px solid var(--border-md);
+      background:transparent; color:var(--muted);
+      padding:5px 12px; display:inline-flex; align-items:center; gap:5px;
+      transition:background .12s,color .12s; white-space:nowrap;
     }
-    .btn:hover  { background: var(--surface2); color: var(--text); }
-    .btn:disabled { opacity: .3; cursor: not-allowed; }
-    .btn.primary { border-color: var(--blue); color: var(--blue); }
-    .btn.primary:hover { background: var(--blue-dim); }
-    .btn.sm { font-size: 10px; padding: 3px 9px; }
+    .btn:hover  { background:var(--surface2); color:var(--text); }
+    .btn:disabled { opacity:.3; cursor:not-allowed; }
+    .btn.primary { border-color:var(--blue); color:var(--blue); }
+    .btn.primary:hover { background:var(--blue-dim); }
+    .btn.sm { font-size:10px; padding:3px 9px; }
 
-    /* ── PROGRESS ── */
-    .progress-rail { height: 2px; background: var(--border); overflow: hidden; }
-    .progress-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, var(--blue), var(--purple));
-      transition: width 0.5s ease;
-    }
+    /* PROGRESS */
+    .prog-rail { height:2px; background:var(--border); overflow:hidden; }
+    .prog-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--purple)); transition:width .5s ease; }
 
-    /* ── FILTER BAR ── */
+    /* FILTER BAR */
     .filterbar {
-      display: flex; align-items: center; gap: 4px;
-      padding: 7px 20px;
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
+      display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+      padding:7px 20px; background:var(--surface); border-bottom:1px solid var(--border);
     }
-    .filter-label { font-size: 10px; color: var(--muted); margin-right: 4px; letter-spacing: .06em; }
+    .flabel { font-size:10px; color:var(--muted); margin-right:4px; letter-spacing:.06em; }
     .fbtn {
-      font-family: var(--font-mono); font-size: 10px;
-      padding: 2px 9px; border-radius: 3px;
-      border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer;
-      transition: all .1s;
+      font-family:var(--font); font-size:10px; padding:2px 9px; border-radius:3px;
+      border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all .1s;
     }
-    .fbtn:hover { color: var(--text); border-color: var(--border-md); }
-    .fbtn.active { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+    .fbtn:hover { color:var(--text); border-color:var(--border-md); }
+    .fbtn.active { border-color:var(--blue); color:var(--blue); background:var(--blue-dim); }
 
-    /* ── MAIN ── */
-    main { flex: 1; overflow-x: auto; }
+    /* MAIN */
+    main { flex:1; overflow-x:auto; }
 
-    /* ── WELCOME ── */
+    /* WELCOME */
     .welcome {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 14px; min-height: 400px; text-align: center; padding: 40px 20px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:14px; min-height:400px; text-align:center; padding:40px 20px;
     }
-    .welcome-glyph { font-size: 40px; opacity: .25; }
-    .welcome h1 { font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: .02em; }
-    .welcome p  { font-size: 12px; color: var(--muted); max-width: 400px; line-height: 1.7; }
-    .welcome-steps {
-      display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center;
-    }
-    .ws {
-      display: flex; align-items: center; gap: 7px;
-      background: var(--surface2); border: 1px solid var(--border-md);
-      border-radius: var(--radius); padding: 7px 13px; font-size: 11px; color: var(--text);
-    }
-    .ws-n {
-      width: 17px; height: 17px; border-radius: 3px;
-      background: var(--blue-dim); border: 1px solid rgba(91,155,255,.3);
-      font-size: 9px; font-weight: 700; color: var(--blue);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
+    .welcome-glyph { font-size:40px; opacity:.2; }
+    .welcome h1 { font-size:18px; font-weight:600; letter-spacing:.02em; }
+    .welcome p  { font-size:12px; color:var(--muted); max-width:420px; line-height:1.7; }
+    .welcome-steps { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; justify-content:center; }
+    .ws { display:flex; align-items:center; gap:7px; background:var(--surface2); border:1px solid var(--border-md); border-radius:var(--radius); padding:7px 13px; font-size:11px; }
+    .wsn { width:17px; height:17px; border-radius:3px; background:var(--blue-dim); border:1px solid rgba(91,155,255,.3); font-size:9px; font-weight:700; color:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
-    /* ── ERROR BANNER ── */
-    .error-banner {
-      display: none; margin: 12px 20px; padding: 10px 14px;
-      background: var(--red-dim); border: 1px solid rgba(255,107,107,.25);
-      border-radius: var(--radius); font-size: 12px; color: var(--red); line-height: 1.6;
-    }
-    .error-banner.visible { display: block; }
+    /* ERROR */
+    .err-banner { display:none; margin:12px 20px; padding:10px 14px; background:var(--red-dim); border:1px solid rgba(255,107,107,.25); border-radius:var(--radius); font-size:12px; color:var(--red); line-height:1.6; }
+    .err-banner.visible { display:block; }
 
-    /* ── TABLE ── */
-    .table-outer { display: none; }
-    .table-outer.visible { display: block; }
-
-    table {
-      width: 100%; border-collapse: collapse; font-size: 12px;
-      min-width: 860px;
-    }
-
-    thead tr {
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border-md);
-      position: sticky; top: 48px; z-index: 10;
-    }
-
+    /* TABLE */
+    .table-outer { display:none; }
+    .table-outer.visible { display:block; }
+    table { width:100%; border-collapse:collapse; font-size:12px; min-width:860px; }
+    thead tr { background:var(--surface2); border-bottom:1px solid var(--border-md); position:sticky; top:48px; z-index:10; }
     th {
-      padding: 8px 12px; text-align: right;
-      font-size: 10px; font-weight: 500; color: var(--muted);
-      letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
-      cursor: pointer; user-select: none;
+      padding:8px 12px; text-align:right;
+      font-size:10px; font-weight:500; color:var(--muted);
+      letter-spacing:.07em; text-transform:uppercase; white-space:nowrap;
+      cursor:pointer; user-select:none;
     }
-    th:hover { color: var(--text); }
-    th:first-child  { text-align: left; width: 72px; }
-    th:nth-child(2) { text-align: left; }
-    th.sort-asc::after  { content: ' ↑'; color: var(--blue); }
-    th.sort-desc::after { content: ' ↓'; color: var(--blue); }
+    th:hover { color:var(--text); }
+    th:first-child, th:nth-child(2) { text-align:left; }
+    th.asc::after  { content:' ↑'; color:var(--blue); }
+    th.desc::after { content:' ↓'; color:var(--blue); }
+    tbody tr { border-bottom:1px solid var(--border); transition:background .08s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:var(--surface2); }
+    td { padding:8px 12px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    td:first-child, td:nth-child(2) { text-align:left; }
 
-    tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--surface2); }
+    .t-ticker { font-weight:600; color:var(--blue); font-size:12px; }
+    .t-name   { color:var(--muted); font-size:11px; }
+    .consensus { display:inline-flex; gap:3px; align-items:center; }
+    .cpill { padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; }
+    .cpill.buy  { background:var(--green-dim); color:var(--green); }
+    .cpill.hold { background:var(--amber-dim); color:var(--amber); }
+    .cpill.sell { background:var(--red-dim);   color:var(--red);   }
+    .up      { color:var(--green); }
+    .down    { color:var(--red);   }
+    .neutral { color:var(--muted); }
+    .na      { color:var(--subtle); font-size:10px; }
 
-    td {
-      padding: 8px 12px; text-align: right;
-      white-space: nowrap; font-variant-numeric: tabular-nums;
-    }
-    td:first-child  { text-align: left; }
-    td:nth-child(2) { text-align: left; }
+    .bar-cell { display:flex; align-items:center; gap:5px; justify-content:flex-end; }
+    .mbar  { width:38px; height:3px; border-radius:2px; background:var(--subtle); overflow:hidden; flex-shrink:0; }
+    .mfill { height:100%; border-radius:2px; }
+    .stag  { font-size:9px; font-weight:700; padding:1px 5px; border-radius:2px; margin-left:3px; vertical-align:middle; }
+    .stag-ob { background:var(--red-dim);   color:var(--red);   }
+    .stag-os { background:var(--green-dim); color:var(--green); }
 
-    .t-ticker { font-weight: 600; color: var(--blue); font-size: 12px; }
-    .t-name   { color: var(--muted); font-size: 11px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
-
-    /* consensus pills */
-    .consensus { display: inline-flex; gap: 3px; align-items: center; }
-    .cpill { padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
-    .cpill.buy  { background: var(--green-dim); color: var(--green); }
-    .cpill.hold { background: var(--amber-dim); color: var(--amber); }
-    .cpill.sell { background: var(--red-dim);   color: var(--red);   }
-
-    /* change % */
-    .up      { color: var(--green); }
-    .down    { color: var(--red);   }
-    .neutral { color: var(--muted); }
-    .na      { color: var(--subtle); font-size: 10px; }
-
-    /* mini bar */
-    .bar-cell { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
-    .mbar { width: 38px; height: 3px; border-radius: 2px; background: var(--subtle); overflow: hidden; flex-shrink: 0; }
-    .mfill { height: 100%; border-radius: 2px; }
-
-    /* signal tags */
-    .stag {
-      font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 2px;
-      margin-left: 3px; vertical-align: middle; letter-spacing: .04em;
-    }
-    .stag-ob { background: var(--red-dim);   color: var(--red);   }
-    .stag-os { background: var(--green-dim); color: var(--green); }
-
-    /* skeleton */
-    .skel { display: inline-block; border-radius: 3px; background: var(--surface3); }
+    /* SKELETON */
+    .skel { display:inline-block; border-radius:3px; background:var(--surface3); animation:shimmer 1.4s infinite; }
     @keyframes shimmer { 0%,100%{opacity:.3} 50%{opacity:.7} }
-    .skel { animation: shimmer 1.4s infinite; }
 
-    /* ── COMMENTARY ── */
-    .commentary {
-      display: none; padding: 12px 20px;
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-      font-size: 12px; line-height: 1.7; color: var(--muted);
-    }
-    .commentary.visible { display: block; }
-    .commentary-hd {
-      font-size: 9px; font-weight: 600; letter-spacing: .1em;
-      text-transform: uppercase; color: var(--subtle); margin-bottom: 5px;
-    }
-    .commentary strong { color: var(--text); font-weight: 600; }
+    /* COMMENTARY */
+    .commentary { display:none; padding:12px 20px; border-top:1px solid var(--border); background:var(--surface); font-size:12px; line-height:1.7; color:var(--muted); }
+    .commentary.visible { display:block; }
+    .commentary-hd { font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--subtle); margin-bottom:5px; }
+    .commentary strong { color:var(--text); font-weight:600; }
 
-    /* ── FOOTER ── */
-    footer {
-      padding: 8px 20px; border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 10px; color: var(--subtle);
-      background: var(--surface); flex-wrap: wrap; gap: 4px;
-    }
+    /* FOOTER */
+    footer { padding:8px 20px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--subtle); background:var(--surface); flex-wrap:wrap; gap:4px; }
 
-    /* ── SCROLLBAR ── */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--subtle); border-radius: 3px; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--subtle); border-radius:3px; }
   </style>
 </head>
 <body>
 <div class="shell">
 
-  <!-- TOPBAR -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-logo">⬡</div>
@@ -281,23 +186,17 @@
       <span class="brand-sep">/</span>
       <span class="brand-sub" id="tickerCount">31 tickers</span>
     </div>
-
     <div class="topbar-right">
-      <div class="status-pill" id="statusPill">
-        <div class="status-dot"></div>
-        <span id="statusLabel">Ready</span>
-      </div>
+      <div class="status-pill" id="statusPill"><div class="sdot"></div><span id="statusLabel">Ready</span></div>
       <button class="btn sm" id="deepBtn" onclick="deepDive()">↗ Deep dive</button>
       <button class="btn primary" id="refreshBtn" onclick="refresh()">↻ Refresh</button>
     </div>
   </header>
 
-  <!-- PROGRESS -->
-  <div class="progress-rail"><div class="progress-fill" id="prog"></div></div>
+  <div class="prog-rail"><div class="prog-fill" id="prog"></div></div>
 
-  <!-- FILTER BAR -->
   <div class="filterbar">
-    <span class="filter-label">SECTOR</span>
+    <span class="flabel">SECTOR</span>
     <button class="fbtn active" onclick="setFilter('all',this)">All</button>
     <button class="fbtn" onclick="setFilter('tech',this)">Tech</button>
     <button class="fbtn" onclick="setFilter('semis',this)">Semis</button>
@@ -306,35 +205,31 @@
     <button class="fbtn" onclick="setFilter('ev',this)">EV / Auto</button>
     <button class="fbtn" onclick="setFilter('europe',this)">Europe</button>
     <span style="margin-left:8px;color:var(--subtle)">|</span>
-    <span class="filter-label" style="margin-left:8px">SIGNAL</span>
-    <button class="fbtn" onclick="setSignalFilter('ob',this)" title="Overbought RSI >70">OB</button>
-    <button class="fbtn" onclick="setSignalFilter('os',this)" title="Oversold RSI <30">OS</button>
-    <button class="fbtn" onclick="setSignalFilter('upside',this)" title="Upside >20%">↑20%+</button>
-    <button class="fbtn" onclick="setSignalFilter('52low',this)" title="Near 52W low">52W Low</button>
-    <button class="fbtn" onclick="setSignalFilter('strong_buy',this)" title="Strong buy consensus">Strong Buy</button>
+    <span class="flabel" style="margin-left:8px">SIGNAL</span>
+    <button class="fbtn" onclick="setSig('ob',this)"   title="RSI > 70">OB</button>
+    <button class="fbtn" onclick="setSig('os',this)"   title="RSI < 30">OS</button>
+    <button class="fbtn" onclick="setSig('up20',this)" title="Upside > 20%">↑20%+</button>
+    <button class="fbtn" onclick="setSig('52lo',this)" title="Near 52W low">52W Low</button>
+    <button class="fbtn" onclick="setSig('sbuy',this)" title="Strong buy">Strong Buy</button>
     <span id="tsLabel" style="margin-left:auto;font-size:10px;color:var(--subtle)"></span>
   </div>
 
-  <!-- MAIN -->
   <main>
-    <div class="error-banner" id="errBanner"></div>
+    <div class="err-banner" id="errBanner"></div>
 
-    <!-- WELCOME -->
     <div class="welcome" id="welcome">
       <div class="welcome-glyph">◈</div>
       <h1>The Oracle</h1>
-      <p>Live market research terminal. Fetches real-time prices, analyst targets, RSI, and consensus ratings for your 31-ticker watchlist via FMP + Gemini.</p>
+      <p>Live market research terminal powered by Gemini 2.5 Flash with Google Search grounding. Real-time prices, analyst consensus, price targets, RSI, and signal analysis — no paid data subscription needed.</p>
       <div class="welcome-steps">
-        <div class="ws"><div class="ws-n">1</div>Click Refresh</div>
-        <div class="ws"><div class="ws-n">2</div>FMP fetches market data</div>
-        <div class="ws"><div class="ws-n">3</div>Gemini analyses signals</div>
-        <div class="ws"><div class="ws-n">4</div>Table renders live</div>
+        <div class="ws"><div class="wsn">1</div>Click Refresh</div>
+        <div class="ws"><div class="wsn">2</div>Gemini searches Google</div>
+        <div class="ws"><div class="wsn">3</div>Data renders live</div>
       </div>
     </div>
 
-    <!-- TABLE -->
     <div class="table-outer" id="tableOuter">
-      <table id="mainTable">
+      <table>
         <thead>
           <tr>
             <th onclick="sortBy('ticker')">Ticker</th>
@@ -354,7 +249,6 @@
       </table>
     </div>
 
-    <!-- COMMENTARY -->
     <div class="commentary" id="commentary">
       <div class="commentary-hd">Gemini signal analysis</div>
       <div id="commentaryText"></div>
@@ -362,442 +256,305 @@
   </main>
 
   <footer>
-    <span>Data: Financial Modeling Prep · Analysis: Gemini 2.5 Flash</span>
+    <span>Powered by Gemini 2.5 Flash + Google Search grounding</span>
     <span id="footerTs"></span>
     <span>Not investment advice</span>
   </footer>
 
 </div>
-
 <script>
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
 const WL = [
-  { ticker:'AAPL',  name:'Apple Inc',              sector:'tech'    },
-  { ticker:'AMD',   name:'Adv. Micro Devices',      sector:'semis'   },
-  { ticker:'AMZN',  name:'Amazon.com',              sector:'tech'    },
-  { ticker:'BABA',  name:'Alibaba ADR',             sector:'tech'    },
-  { ticker:'META',  name:'Meta Platforms',          sector:'tech'    },
-  { ticker:'IBKR',  name:'Interactive Brokers',     sector:'tech'    },
-  { ticker:'MSFT',  name:'Microsoft',               sector:'tech'    },
-  { ticker:'NIO',   name:'NIO ADR',                 sector:'ev'      },
-  { ticker:'PLTR',  name:'Palantir',                sector:'tech'    },
-  { ticker:'TSLA',  name:'Tesla',                   sector:'ev'      },
-  { ticker:'CRWD',  name:'CrowdStrike',             sector:'tech'    },
-  { ticker:'NVDA',  name:'Nvidia',                  sector:'semis'   },
-  { ticker:'RHM',   name:'Rheinmetall AG',          sector:'europe'  },
-  { ticker:'CTSH',  name:'Cognizant Tech',          sector:'tech'    },
-  { ticker:'BAESY', name:'BAE Systems ADR',         sector:'defense' },
-  { ticker:'NOC',   name:'Northrop Grumman',        sector:'defense' },
-  { ticker:'GD',    name:'General Dynamics',        sector:'defense' },
-  { ticker:'NVO',   name:'Novo Nordisk ADR',        sector:'health'  },
-  { ticker:'GILD',  name:'Gilead Sciences',         sector:'health'  },
-  { ticker:'ASML',  name:'ASML Holding',            sector:'semis'   },
-  { ticker:'VRT',   name:'Vertiv Holdings',         sector:'tech'    },
-  { ticker:'ORCL',  name:'Oracle',                  sector:'tech'    },
-  { ticker:'NKE',   name:'Nike',                    sector:'tech'    },
-  { ticker:'COST',  name:'Costco',                  sector:'tech'    },
-  { ticker:'SONO',  name:'Sonos',                   sector:'tech'    },
-  { ticker:'APH',   name:'Amphenol',                sector:'tech'    },
-  { ticker:'AVGO',  name:'Broadcom',                sector:'semis'   },
-  { ticker:'VST',   name:'Vistra Corp',             sector:'tech'    },
-  { ticker:'TEM',   name:'Tempus AI',               sector:'health'  },
-  { ticker:'CRWV',  name:'CoreWeave',               sector:'tech'    },
-  { ticker:'LMT',   name:'Lockheed Martin',         sector:'defense' },
+  {ticker:'AAPL', name:'Apple Inc',           sector:'tech'},
+  {ticker:'AMD',  name:'Adv. Micro Devices',  sector:'semis'},
+  {ticker:'AMZN', name:'Amazon.com',          sector:'tech'},
+  {ticker:'BABA', name:'Alibaba ADR',         sector:'tech'},
+  {ticker:'META', name:'Meta Platforms',      sector:'tech'},
+  {ticker:'IBKR', name:'Interactive Brokers', sector:'tech'},
+  {ticker:'MSFT', name:'Microsoft',           sector:'tech'},
+  {ticker:'NIO',  name:'NIO ADR',             sector:'ev'},
+  {ticker:'PLTR', name:'Palantir',            sector:'tech'},
+  {ticker:'TSLA', name:'Tesla',               sector:'ev'},
+  {ticker:'CRWD', name:'CrowdStrike',         sector:'tech'},
+  {ticker:'NVDA', name:'Nvidia',              sector:'semis'},
+  {ticker:'RHM',  name:'Rheinmetall AG',      sector:'europe'},
+  {ticker:'CTSH', name:'Cognizant Tech',      sector:'tech'},
+  {ticker:'BAESY',name:'BAE Systems ADR',     sector:'defense'},
+  {ticker:'NOC',  name:'Northrop Grumman',    sector:'defense'},
+  {ticker:'GD',   name:'General Dynamics',    sector:'defense'},
+  {ticker:'NVO',  name:'Novo Nordisk ADR',    sector:'health'},
+  {ticker:'GILD', name:'Gilead Sciences',     sector:'health'},
+  {ticker:'ASML', name:'ASML Holding',        sector:'semis'},
+  {ticker:'VRT',  name:'Vertiv Holdings',     sector:'tech'},
+  {ticker:'ORCL', name:'Oracle',              sector:'tech'},
+  {ticker:'NKE',  name:'Nike',                sector:'tech'},
+  {ticker:'COST', name:'Costco',              sector:'tech'},
+  {ticker:'SONO', name:'Sonos',               sector:'tech'},
+  {ticker:'APH',  name:'Amphenol',            sector:'tech'},
+  {ticker:'AVGO', name:'Broadcom',            sector:'semis'},
+  {ticker:'VST',  name:'Vistra Corp',         sector:'tech'},
+  {ticker:'TEM',  name:'Tempus AI',           sector:'health'},
+  {ticker:'CRWV', name:'CoreWeave',           sector:'tech'},
+  {ticker:'LMT',  name:'Lockheed Martin',     sector:'defense'},
 ];
 
 // ── STATE ──────────────────────────────────────────────────────────────────
-let tableData    = [];
-let activeFilter = 'all';
-let activeSignal = null;
-let sortKey      = null;
-let sortDir      = 1;   // 1 = asc, -1 = desc
-let fetching     = false;
+let tableData = [], activeFilter='all', activeSig=null, sortKey=null, sortDir=-1, busy=false;
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
-const $  = id => document.getElementById(id);
-const cc = (el, ...cls) => { el.className = ''; cls.forEach(c => c && el.classList.add(c)); };
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
 
-function setStatus(text, state) {
-  const p = $('statusPill');
-  p.className = 'status-pill' + (state ? ' ' + state : '');
-  $('statusLabel').textContent = text;
+function setStatus(txt,state){
+  $('statusPill').className='status-pill'+(state?' '+state:'');
+  $('statusLabel').textContent=txt;
 }
-function setProgress(pct) { $('prog').style.width = pct + '%'; }
+function setProg(p){ $('prog').style.width=p+'%'; }
+function showErr(m){ const e=$('errBanner'); e.innerHTML='⚠ '+m; e.classList.add('visible'); }
+function clearErr(){ $('errBanner').classList.remove('visible'); }
 
-function showError(msg) {
-  const el = $('errBanner');
-  el.innerHTML = '⚠ ' + msg;
-  el.classList.add('visible');
-}
-function clearError() { $('errBanner').classList.remove('visible'); }
-
-// ── CURRENCY SYMBOL ────────────────────────────────────────────────────────
-function currSym(currency) {
-  if (!currency) return '$';
-  if (currency === 'EUR') return '€';
-  if (currency === 'GBP') return '£';
-  return '$';
+// ── GEMINI CALL ────────────────────────────────────────────────────────────
+async function callGemini(prompt, useSearch=false){
+  const r = await fetch('/api/gemini',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt, useSearch}),
+  });
+  if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
+  const d=await r.json();
+  return d.text||'';
 }
 
-// ── RSI COLOUR ────────────────────────────────────────────────────────────
-function rsiColor(v) {
-  if (v >= 70) return 'var(--red)';
-  if (v <= 30) return 'var(--green)';
-  if (v >= 60) return 'var(--amber)';
-  return 'var(--blue)';
+// ── RENDER HELPERS ─────────────────────────────────────────────────────────
+function rsiColor(v){ return v>=70?'var(--red)':v<=30?'var(--green)':v>=60?'var(--amber)':'var(--blue)'; }
+function fmtPrice(v,cur){
+  if(v==null) return '<span class="na">—</span>';
+  const sym = cur==='EUR'?'€':cur==='GBP'?'£':'$';
+  return sym+parseFloat(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtPct(v){
+  if(v==null) return '<span class="na">—</span>';
+  const n=parseFloat(v);
+  const cls=n>0.5?'up':n<-0.5?'down':'neutral';
+  return `<span class="${cls}">${n>0?'+':''}${n.toFixed(1)}%</span>`;
 }
 
-// ── FORMAT HELPERS ────────────────────────────────────────────────────────
-function fmtPrice(val, currency) {
-  if (val == null) return '<span class="na">—</span>';
-  return currSym(currency) + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function fmtPct(val, plus = true) {
-  if (val == null) return '<span class="na">—</span>';
-  const v = parseFloat(val);
-  const cls = v > 0.5 ? 'up' : v < -0.5 ? 'down' : 'neutral';
-  const sign = v > 0 && plus ? '+' : '';
-  return `<span class="${cls}">${sign}${v.toFixed(1)}%</span>`;
-}
-function fmtNA(val, suffix = '') {
-  if (val == null || val === '') return '<span class="na">—</span>';
-  return val + suffix;
-}
+// ── RENDER ROW ─────────────────────────────────────────────────────────────
+function renderRow(r){
+  const wl=WL.find(w=>w.ticker===r.ticker)||{};
+  const cur=r.currency||'USD';
+  const tot=(r.buy||0)+(r.hold||0)+(r.sell||0);
+  const cons=tot>0
+    ?`<div class="consensus"><span class="cpill buy">${r.buy}B</span><span class="cpill hold">${r.hold}H</span><span class="cpill sell">${r.sell}S</span></div>`
+    :'<span class="na">—</span>';
 
-// ── RENDER ROW ────────────────────────────────────────────────────────────
-function renderRow(r) {
-  const wl    = WL.find(w => w.ticker === r.ticker) || {};
-  const cur   = r.currency || 'USD';
-  const sym   = currSym(cur);
+  const rsiV=r.rsi!=null?parseFloat(r.rsi):null;
+  const rsiHtml=rsiV==null?'<span class="na">—</span>'
+    :`<div class="bar-cell"><span style="color:${rsiColor(rsiV)}">${rsiV.toFixed(1)}${rsiV>=70?'<span class="stag stag-ob">OB</span>':rsiV<=30?'<span class="stag stag-os">OS</span>':''}</span><div class="mbar"><div class="mfill" style="width:${Math.min(rsiV,100)}%;background:${rsiColor(rsiV)}"></div></div></div>`;
 
-  // consensus
-  const totalRatings = (r.buy||0) + (r.hold||0) + (r.sell||0);
-  const consensus = totalRatings > 0
-    ? `<div class="consensus">
-        <span class="cpill buy">${r.buy}B</span>
-        <span class="cpill hold">${r.hold}H</span>
-        <span class="cpill sell">${r.sell}S</span>
-       </div>`
-    : '<span class="na">—</span>';
+  const posV=r.pos52w!=null?parseFloat(r.pos52w):null;
+  const posHtml=posV==null?'<span class="na">—</span>'
+    :`<div class="bar-cell"><span style="color:${posV<20?'var(--red)':posV>80?'var(--green)':'var(--muted)'}">${posV.toFixed(1)}%</span><div class="mbar"><div class="mfill" style="width:${Math.min(posV,100)}%;background:var(--blue)"></div></div></div>`;
 
-  // RSI
-  const rsiV = r.rsi != null ? parseFloat(r.rsi) : null;
-  const rsiHtml = rsiV == null
-    ? '<span class="na">—</span>'
-    : `<div class="bar-cell">
-         <span style="color:${rsiColor(rsiV)}">${rsiV.toFixed(1)}${
-           rsiV >= 70 ? '<span class="stag stag-ob">OB</span>'
-         : rsiV <= 30 ? '<span class="stag stag-os">OS</span>'
-         : ''}</span>
-         <div class="mbar"><div class="mfill" style="width:${Math.min(rsiV,100)}%;background:${rsiColor(rsiV)}"></div></div>
-       </div>`;
-
-  // 52W pos
-  const posV = r.pos52w != null ? parseFloat(r.pos52w) : null;
-  const posHtml = posV == null
-    ? '<span class="na">—</span>'
-    : `<div class="bar-cell">
-         <span style="color:${posV < 20 ? 'var(--red)' : posV > 80 ? 'var(--green)' : 'var(--muted)'}">${posV.toFixed(1)}%</span>
-         <div class="mbar"><div class="mfill" style="width:${Math.min(posV,100)}%;background:var(--blue)"></div></div>
-       </div>`;
-
-  return `<tr data-sector="${wl.sector||''}">
+  return `<tr>
     <td><span class="t-ticker">${r.ticker}</span></td>
-    <td><span class="t-name">${wl.name || r.ticker}</span></td>
-    <td style="text-align:center">${consensus}</td>
-    <td>${fmtPrice(r.price, cur)}</td>
+    <td><span class="t-name">${wl.name||r.ticker}</span></td>
+    <td style="text-align:center">${cons}</td>
+    <td>${fmtPrice(r.price,cur)}</td>
     <td>${fmtPct(r.change_pct)}</td>
-    <td style="font-weight:600">${fmtPrice(r.pt_median, cur)}</td>
+    <td style="font-weight:600">${fmtPrice(r.pt_median,cur)}</td>
     <td>${fmtPct(r.upside_pct)}</td>
-    <td class="neutral">${fmtPrice(r.pt_low, cur)}</td>
-    <td class="neutral">${fmtPrice(r.pt_high, cur)}</td>
+    <td class="neutral">${fmtPrice(r.pt_low,cur)}</td>
+    <td class="neutral">${fmtPrice(r.pt_high,cur)}</td>
     <td>${rsiHtml}</td>
     <td>${posHtml}</td>
   </tr>`;
 }
 
-// ── SKELETON ──────────────────────────────────────────────────────────────
-function showSkeleton() {
-  $('welcome').style.display    = 'none';
+// ── SKELETON ───────────────────────────────────────────────────────────────
+function showSkeleton(){
+  $('welcome').style.display='none';
   $('tableOuter').classList.add('visible');
-  const s = w => `<span class="skel" style="width:${w}px;height:10px;display:inline-block"></span>`;
-  $('tbody').innerHTML = WL.map(() =>
-    `<tr>${[48,90,80,55,44,55,44,50,50,50,50].map(w => `<td>${s(w)}</td>`).join('')}</tr>`
-  ).join('');
+  const s=w=>`<span class="skel" style="width:${w}px;height:10px"></span>`;
+  $('tbody').innerHTML=WL.map(()=>`<tr>${[44,90,80,55,44,55,44,50,50,55,50].map(w=>`<td>${s(w)}</td>`).join('')}</tr>`).join('');
 }
 
-// ── RENDER TABLE ──────────────────────────────────────────────────────────
-function renderTable() {
-  let rows = [...tableData];
-
-  // sector filter
-  if (activeFilter !== 'all') {
-    rows = rows.filter(r => {
-      const wl = WL.find(w => w.ticker === r.ticker);
-      return wl && wl.sector === activeFilter;
+// ── RENDER TABLE ───────────────────────────────────────────────────────────
+function renderTable(){
+  let rows=[...tableData];
+  if(activeFilter!=='all') rows=rows.filter(r=>{const w=WL.find(x=>x.ticker===r.ticker);return w&&w.sector===activeFilter;});
+  if(activeSig) rows=rows.filter(r=>{
+    const rsi=parseFloat(r.rsi), up=parseFloat(r.upside_pct), pos=parseFloat(r.pos52w);
+    const tot=(r.buy||0)+(r.hold||0)+(r.sell||0);
+    if(activeSig==='ob')   return rsi>=70;
+    if(activeSig==='os')   return rsi<=30;
+    if(activeSig==='up20') return up>=20;
+    if(activeSig==='52lo') return pos<=20;
+    if(activeSig==='sbuy') return tot>0&&(r.buy/tot)>=0.65;
+    return true;
+  });
+  if(sortKey){
+    rows.sort((a,b)=>{
+      let av=a[sortKey],bv=b[sortKey];
+      if(sortKey==='name'){const wa=WL.find(w=>w.ticker===a.ticker),wb=WL.find(w=>w.ticker===b.ticker);av=wa?wa.name:a.ticker;bv=wb?wb.name:b.ticker;}
+      if(sortKey==='consensus'){const ta=(a.buy||0)+(a.hold||0)+(a.sell||0),tb=(b.buy||0)+(b.hold||0)+(b.sell||0);av=ta>0?a.buy/ta:0;bv=tb>0?b.buy/tb:0;}
+      if(av==null)return 1; if(bv==null)return -1;
+      return(typeof av==='string'?av.localeCompare(bv):parseFloat(av)-parseFloat(bv))*sortDir;
     });
   }
-
-  // signal filter
-  if (activeSignal) {
-    rows = rows.filter(r => {
-      const rsi = parseFloat(r.rsi);
-      const up  = parseFloat(r.upside_pct);
-      const pos = parseFloat(r.pos52w);
-      const tot = (r.buy||0) + (r.hold||0) + (r.sell||0);
-      if (activeSignal === 'ob')         return rsi >= 70;
-      if (activeSignal === 'os')         return rsi <= 30;
-      if (activeSignal === 'upside')     return up >= 20;
-      if (activeSignal === '52low')      return pos <= 20;
-      if (activeSignal === 'strong_buy') return tot > 0 && (r.buy / tot) >= 0.65;
-      return true;
-    });
-  }
-
-  // sort
-  if (sortKey) {
-    rows.sort((a, b) => {
-      let av = a[sortKey], bv = b[sortKey];
-      if (sortKey === 'name') {
-        const wa = WL.find(w => w.ticker === a.ticker);
-        const wb = WL.find(w => w.ticker === b.ticker);
-        av = wa ? wa.name : a.ticker;
-        bv = wb ? wb.name : b.ticker;
-      }
-      if (sortKey === 'consensus') {
-        const ta = (a.buy||0) + (a.hold||0) + (a.sell||0);
-        const tb = (b.buy||0) + (b.hold||0) + (b.sell||0);
-        av = ta > 0 ? a.buy / ta : 0;
-        bv = tb > 0 ? b.buy / tb : 0;
-      }
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      const cmp = typeof av === 'string' ? av.localeCompare(bv) : parseFloat(av) - parseFloat(bv);
-      return cmp * sortDir;
-    });
-  }
-
-  if (!rows.length) {
-    $('tbody').innerHTML = `<tr><td colspan="11" style="text-align:center;padding:48px;color:var(--muted)">No tickers match this filter</td></tr>`;
-  } else {
-    $('tbody').innerHTML = rows.map(renderRow).join('');
-  }
+  $('tbody').innerHTML=rows.length?rows.map(renderRow).join(''):`<tr><td colspan="11" style="text-align:center;padding:48px;color:var(--muted)">No tickers match this filter</td></tr>`;
 }
 
-// ── SORT ──────────────────────────────────────────────────────────────────
-function sortBy(key) {
-  if (sortKey === key) { sortDir *= -1; }
-  else { sortKey = key; sortDir = -1; }
-
-  document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
-  const ths = document.querySelectorAll('th');
-  const keys = ['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w'];
-  const idx = keys.indexOf(key);
-  if (idx >= 0) ths[idx].classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
-
+// ── SORT ───────────────────────────────────────────────────────────────────
+const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w'];
+function sortBy(key){
+  sortDir=sortKey===key?sortDir*-1:-1; sortKey=key;
+  document.querySelectorAll('th').forEach((th,i)=>{th.classList.remove('asc','desc');if(COL_KEYS[i]===key)th.classList.add(sortDir===1?'asc':'desc');});
   renderTable();
 }
 
-// ── FILTERS ───────────────────────────────────────────────────────────────
-function setFilter(f, el) {
-  activeFilter = f;
-  activeSignal = null;
-  document.querySelectorAll('.filterbar .fbtn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  renderTable();
+// ── FILTERS ────────────────────────────────────────────────────────────────
+function setFilter(f,el){
+  activeFilter=f; activeSig=null;
+  document.querySelectorAll('.filterbar .fbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active'); renderTable();
+}
+function setSig(s,el){
+  activeSig=activeSig===s?null:s;
+  document.querySelectorAll('.filterbar .fbtn').forEach(b=>b.classList.remove('active'));
+  if(activeSig)el.classList.add('active'); renderTable();
 }
 
-function setSignalFilter(s, el) {
-  if (activeSignal === s) {
-    activeSignal = null;
-    el.classList.remove('active');
-  } else {
-    activeSignal = s;
-    document.querySelectorAll('.filterbar .fbtn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-  }
-  renderTable();
-}
-
-// ── REFRESH ───────────────────────────────────────────────────────────────
-async function refresh() {
-  if (fetching) return;
-  fetching = true;
-  clearError();
-  $('refreshBtn').disabled = true;
+// ── MAIN REFRESH ──────────────────────────────────────────────────────────
+async function refresh(){
+  if(busy)return;
+  busy=true; clearErr();
+  $('refreshBtn').disabled=true;
   $('commentary').classList.remove('visible');
+  setStatus('Searching for market data…','loading');
+  setProg(5); showSkeleton();
 
-  setStatus('Fetching market data…', 'loading');
-  setProgress(5);
-  showSkeleton();
+  const tickers=WL.map(w=>w.ticker).join(', ');
 
-  const tickers = WL.map(w => w.ticker);
+  const dataPrompt=`You are a market data assistant. Use Google Search to find current market data for these stock tickers and return ONLY a valid JSON array — no markdown, no code fences, no explanation. Start with [ and end with ].
+
+Tickers: ${tickers}
+
+For each ticker return an object with EXACTLY these keys:
+"ticker"       - string, the ticker symbol
+"price"        - string, current price with 2 decimal places e.g. "182.50"
+"currency"     - string, "USD" for US stocks, "EUR" for RHM
+"change_pct"   - string, today's % change e.g. "1.23" or "-0.45" (no % sign)
+"buy"          - integer, number of analyst Buy ratings
+"hold"         - integer, number of analyst Hold ratings
+"sell"         - integer, number of analyst Sell ratings
+"pt_low"       - string, analyst 12-month price target low e.g. "150.00"
+"pt_median"    - string, analyst 12-month price target median/average e.g. "210.00"
+"pt_high"      - string, analyst 12-month price target high e.g. "280.00"
+"upside_pct"   - string, % upside to median PT e.g. "15.4" or "-3.2" (no % sign)
+"rsi"          - string, 14-day RSI value e.g. "58.3"
+"pos52w"       - string, 52-week position 0-100 e.g. "67.2" where 0=52W low, 100=52W high
+
+Rules:
+- Use "N/A" only if a value is genuinely unavailable after searching
+- RHM (Rheinmetall) trades on XETRA — price in EUR, currency = "EUR"
+- BAESY is the US ADR for BAE Systems — price in USD
+- All numeric strings must be numbers only (no currency symbols, no % signs)
+- Search for the most current data available today
+
+Return ONLY the JSON array starting with [`;
 
   try {
-    // ── Step 1: FMP ──
-    setStatus('Fetching prices & targets…', 'loading');
-    setProgress(15);
+    setProg(15);
+    setStatus('Gemini searching Google for live data…','loading');
 
-    const fmpRes = await fetch('/api/fmp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tickers }),
-    });
+    const raw = await callGemini(dataPrompt, true);
+    setProg(75);
 
-    if (!fmpRes.ok) {
-      const e = await fmpRes.json().catch(() => ({ error: fmpRes.statusText }));
-      throw new Error('FMP: ' + (e.error || fmpRes.status));
-    }
+    // Extract JSON array from response
+    const match = raw.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('Gemini did not return a JSON array. Response preview: '+raw.slice(0,200));
 
-    const fmpJson = await fmpRes.json();
-    tableData = fmpJson.data || [];
+    const rows = JSON.parse(match[0]);
+    tableData = rows.map(r=>({ ...r, buy:parseInt(r.buy)||0, hold:parseInt(r.hold)||0, sell:parseInt(r.sell)||0 }));
 
-    setProgress(70);
     renderTable();
     $('tableOuter').classList.add('visible');
-    $('welcome').style.display = 'none';
+    $('welcome').style.display='none';
 
-    const now = new Date();
-    const ts = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-    $('tsLabel').textContent = 'Updated ' + ts;
-    $('footerTs').textContent = 'Last refresh: ' + now.toLocaleString('en-GB');
+    const now=new Date();
+    const ts=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    $('tsLabel').textContent='Updated '+ts;
+    $('footerTs').textContent='Last refresh: '+now.toLocaleString('en-GB');
+    setProg(85);
 
-    // ── Step 2: Gemini commentary ──
-    setStatus('Analysing signals with Gemini…', 'loading');
-    setProgress(80);
+    // Commentary
+    setStatus('Analysing signals…','loading');
     await buildCommentary(tableData);
 
-    setProgress(100);
-    setStatus(`${tableData.length} tickers loaded · ${ts}`, 'ok');
-    setTimeout(() => setProgress(0), 800);
+    setProg(100);
+    setStatus(`${tableData.length} tickers loaded · ${ts}`,'ok');
+    setTimeout(()=>setProg(0),800);
 
-  } catch (err) {
-    setStatus('Error', 'err');
-    showError(err.message);
-    setProgress(0);
+  } catch(err){
+    setStatus('Error','err');
+    showErr(err.message);
+    setProg(0);
     console.error(err);
   } finally {
-    fetching = false;
-    $('refreshBtn').disabled = false;
+    busy=false;
+    $('refreshBtn').disabled=false;
   }
 }
 
-// ── GEMINI COMMENTARY ─────────────────────────────────────────────────────
-async function buildCommentary(rows) {
+// ── COMMENTARY ────────────────────────────────────────────────────────────
+async function buildCommentary(rows){
   try {
-    // Build a concise signal snapshot to send to Gemini
-    const signals = rows.map(r => {
-      const wl = WL.find(w => w.ticker === r.ticker) || {};
-      return {
-        ticker:     r.ticker,
-        name:       wl.name,
-        price:      r.price,
-        upside_pct: r.upside_pct,
-        rsi:        r.rsi,
-        pos52w:     r.pos52w,
-        buy:        r.buy,
-        hold:       r.hold,
-        sell:       r.sell,
-        change_pct: r.change_pct,
-      };
-    });
+    const snap = rows.map(r=>({
+      ticker:r.ticker, rsi:r.rsi, upside:r.upside_pct,
+      pos52w:r.pos52w, buy:r.buy, hold:r.hold, sell:r.sell, change:r.change_pct
+    }));
 
-    const prompt = `You are a professional equity research analyst. Analyse this watchlist data and write a concise, insight-driven signal summary for a trader.
-
-Data:
-${JSON.stringify(signals, null, 0)}
+    const prompt=`You are a professional equity analyst. Write a concise signal summary for a trader based on this watchlist data:
+${JSON.stringify(snap)}
 
 Instructions:
-- Write 4–6 bullet points (use • as bullet character)
-- Each bullet should highlight a specific, actionable insight — not generic observations
-- Call out: overbought/oversold RSI, strong buy consensus with high upside, near 52-week extremes, notable day movers, any sector-wide patterns
-- Wrap ticker symbols in **bold** markdown
-- Keep each bullet under 25 words
-- Do not include headers, preambles, or disclaimers
-- Write for an experienced trader who wants signal density, not explanation`;
+- Write 4-6 bullet points using • as the bullet character
+- Each bullet must be a specific, actionable insight
+- Highlight: overbought/oversold RSI, strong consensus with high upside, 52W extremes, notable movers
+- Wrap ticker symbols in **bold**
+- Max 25 words per bullet
+- No headers, preamble, or disclaimers`;
 
-    const gemRes = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
-    });
+    const text = await callGemini(prompt, false);
+    if(!text) return;
 
-    if (!gemRes.ok) throw new Error('Gemini API error ' + gemRes.status);
-
-    const { text } = await gemRes.json();
-    if (!text) return;
-
-    // Convert markdown bold + bullets to HTML
-    const html = text
-      .split('\n')
-      .filter(l => l.trim())
-      .map(l => {
-        const line = l.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        return `<div style="margin-bottom:4px">${line}</div>`;
-      })
+    const html = text.split('\n').filter(l=>l.trim())
+      .map(l=>`<div style="margin-bottom:4px">${l.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')}</div>`)
       .join('');
-
-    $('commentaryText').innerHTML = html;
+    $('commentaryText').innerHTML=html;
     $('commentary').classList.add('visible');
-
-  } catch (err) {
-    console.warn('Commentary failed (non-critical):', err.message);
-  }
+  } catch(e){ console.warn('Commentary failed:',e.message); }
 }
 
 // ── DEEP DIVE ─────────────────────────────────────────────────────────────
-async function deepDive() {
-  if (!tableData.length) {
-    alert('Run a Refresh first to load data, then try Deep Dive.');
-    return;
-  }
+async function deepDive(){
+  if(!tableData.length){ alert('Run Refresh first.'); return; }
+  const top=tableData
+    .filter(r=>(r.buy+r.hold+r.sell)>=8)
+    .map(r=>({...r,br:(r.buy+r.hold+r.sell)>0?r.buy/(r.buy+r.hold+r.sell):0}))
+    .sort((a,b)=>b.br-a.br||parseFloat(b.upside_pct||0)-parseFloat(a.upside_pct||0))
+    .slice(0,5).map(r=>r.ticker).join(', ') || 'NVDA, META, MSFT, AMD, AVGO';
 
-  // Pick top 5 by highest analyst buy ratio with > 10 total ratings
-  const candidates = tableData
-    .filter(r => (r.buy + r.hold + r.sell) >= 8)
-    .map(r => {
-      const total = r.buy + r.hold + r.sell;
-      return { ...r, buyRatio: total > 0 ? r.buy / total : 0 };
-    })
-    .sort((a, b) => b.buyRatio - a.buyRatio || parseFloat(b.upside_pct||0) - parseFloat(a.upside_pct||0))
-    .slice(0, 5)
-    .map(r => r.ticker);
-
-  const list = candidates.join(', ') || 'NVDA, META, MSFT, AMD, AVGO';
-
-  const prompt = `You are a senior equity analyst. Provide a deep dive on these tickers: ${list}.
-
-For each ticker write:
-1. One sentence on current price momentum / recent catalyst
-2. Analyst consensus summary with price target range
-3. Key risk to the bull case
-4. One comparable peer worth watching
-
-Keep each section to 2–3 sentences max. Use **ticker** bold format. Be specific and data-driven.`;
-
-  $('deepBtn').disabled = true;
-  $('deepBtn').textContent = '…';
-
+  $('deepBtn').disabled=true; $('deepBtn').textContent='…';
   try {
-    const res = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
-    });
-    const { text } = await res.json();
-    const html = (text || 'No response')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
-
-    $('commentaryText').innerHTML = html;
+    const text=await callGemini(`You are a senior equity analyst. Deep dive on: ${top}.
+For each: (1) current momentum/recent catalyst, (2) consensus & PT range, (3) key bull-case risk, (4) one comparable peer.
+Keep each point 2-3 sentences. Use **ticker** bold format. Be specific.`, false);
+    $('commentaryText').innerHTML=(text||'No response').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     $('commentary').classList.add('visible');
-    $('commentary').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (e) {
-    alert('Deep dive failed: ' + e.message);
-  } finally {
-    $('deepBtn').disabled = false;
-    $('deepBtn').textContent = '↗ Deep dive';
-  }
+    $('commentary').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e){ alert('Deep dive failed: '+e.message); }
+  finally { $('deepBtn').disabled=false; $('deepBtn').textContent='↗ Deep dive'; }
 }
 </script>
 </body>
