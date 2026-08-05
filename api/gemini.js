@@ -1,23 +1,34 @@
 const MODEL = 'gemini-3.5-flash';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function callGemini(apiKey, prompt, useSearch) {
+const https = require('https');
+
+function httpsGet(hostname, path) {
+  return new Promise((resolve, reject) => {
+    https.get({ hostname, path }, (res) => {
+      let raw = '';
+      res.on('data', chunk => { raw += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body: raw }));
+    }).on('error', reject);
+  });
+}
+
+async function callGemini(apiKey, prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
   };
-  if (useSearch) body.tools = [{ google_search: {} }];
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      await sleep(attempt * 10000);
-    }
+    if (attempt > 0) await sleep(attempt * 10000);
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+
     if (res.status === 429) { await res.text(); continue; }
     if (!res.ok) {
       const err = await res.text();
@@ -42,7 +53,6 @@ function send(res, status, data) {
 }
 
 module.exports = async function handler(req, res) {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(200, {
       'Access-Control-Allow-Origin': '*',
@@ -58,8 +68,11 @@ module.exports = async function handler(req, res) {
   // GET — list models
   if (req.method === 'GET') {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      const data = await r.json();
+      const { body } = await httpsGet(
+        'generativelanguage.googleapis.com',
+        `/v1beta/models?key=${apiKey}`
+      );
+      const data = JSON.parse(body);
       const models = (data.models || []).map(m => m.name);
       return send(res, 200, { models });
     } catch (e) {
@@ -69,37 +82,43 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
 
-  const body = req.body || {};
-  const { mode, ticker, prompt, useSearch } = body;
+  const reqBody = req.body || {};
+  const { mode, ticker, prompt } = reqBody;
 
   console.log('gemini req:', mode, ticker || '', !!prompt);
 
-  // Single ticker
-  if (mode === 'ticker' && ticker) {
-    const p = `Search Google for current stock market data for ${ticker} and return ONLY a raw JSON object. No markdown, no backticks. Start with { end with }.
-Keys (all strings): ticker, price, currency, change_pct, buy, hold, sell, pt_low, pt_median, pt_high, upside_pct, rsi, pos52w
-- price: e.g. "182.50", currency: "USD" or "EUR" (RHM=EUR only)
-- buy/hold/sell: analyst counts e.g. "18"
-- pt_low/pt_median/pt_high: price targets e.g. "210.00"
-- upside_pct: e.g. "15.4", rsi: e.g. "58.3", pos52w: 0-100 e.g. "67.2"
-No $ £ € % in values. Use "N/A" if unavailable. Return ONLY the JSON object.`;
+  // ── Analyst data for a single ticker (no grounding — uses training data) ─
+  if (mode === 'analyst' && ticker) {
+    const p = `You are a financial data assistant. From your training data provide analyst consensus data for the stock ${ticker} and return ONLY a raw JSON object. No markdown, no backticks. Start with { and end with }.
+
+Required keys (all as strings):
+"ticker": "${ticker}"
+"buy": analyst buy rating count e.g. "18"
+"hold": analyst hold rating count e.g. "5"
+"sell": analyst sell rating count e.g. "2"
+"pt_low": 12-month analyst price target low e.g. "150.00"
+"pt_median": 12-month analyst price target median/average e.g. "210.00"
+"pt_high": 12-month analyst price target high e.g. "280.00"
+"upside_pct": % upside from current price to median PT e.g. "15.4" or "-3.2"
+
+No $ £ € % signs in values. Use "N/A" if unknown. Return ONLY the JSON object.`;
 
     try {
-      const raw = await callGemini(apiKey, p, true);
+      const raw = await callGemini(apiKey, p);
       const match = raw.match(/\{[\s\S]*\}/);
       if (!match) throw new Error(`No JSON for ${ticker}`);
       const obj = JSON.parse(match[0]);
-      return send(res, 200, { ticker: obj });
+      return send(res, 200, { analyst: obj });
     } catch (err) {
-      console.error(ticker, err.message);
+      console.error(`Analyst ${ticker}:`, err.message);
       return send(res, 500, { error: err.message });
     }
   }
 
-  // Commentary
+  // ── Commentary / deep dive ───────────────────────────────────────────────
   if (!prompt) return send(res, 400, { error: `No prompt. mode=${mode}` });
   try {
-    const text = await callGemini(apiKey, prompt, useSearch || false);
+    const text = await callGemini(apiKey, prompt);
     return send(res, 200, { text });
   } catch (err) {
     return send(res, 500, { error: err.message });
