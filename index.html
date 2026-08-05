@@ -413,7 +413,7 @@ function updateLastUpdated(ts) {
 // Yahoo: refreshes every day at midnight
 // Gemini: refreshes once per week (Monday 00:00)
 
-const GEMINI_LAST_KEY = 'oracle_gemini_last';
+const GEMINI_LAST_KEY = 'oracle_analyst_last';
 
 function getNextMidnight() {
   const d = new Date();
@@ -432,6 +432,11 @@ function getNextMonday() {
 }
 
 function geminiDueForRefresh() {
+  // Clear old Gemini key if present (migration)
+  if (localStorage.getItem('oracle_gemini_last')) {
+    localStorage.removeItem('oracle_gemini_last');
+    return true;
+  }
   const last = localStorage.getItem(GEMINI_LAST_KEY);
   if (!last) return true;
   const daysSince = (Date.now() - new Date(last).getTime()) / 86400000;
