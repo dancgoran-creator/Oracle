@@ -1,179 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Oracle</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0c0c0e;
-      --surface:   #13131a;
-      --surface2:  #1a1a24;
-      --surface3:  #20202c;
-      --border:    rgba(255,255,255,0.06);
-      --border-md: rgba(255,255,255,0.11);
-      --text:      #e2e2ea;
-      --muted:     #64647a;
-      --subtle:    #2e2e3e;
-      --blue:      #5b9bff;
-      --blue-dim:  rgba(91,155,255,0.1);
-      --green:     #3dd68c;
-      --green-dim: rgba(61,214,140,0.1);
-      --red:       #ff6b6b;
-      --red-dim:   rgba(255,107,107,0.1);
-      --amber:     #ffb84d;
-      --amber-dim: rgba(255,184,77,0.1);
-      --purple:    #a78bfa;
-      --radius:    6px;
-      --font:      'JetBrains Mono','Fira Code',ui-monospace,monospace;
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0c0c0e;--surface:#13131a;--surface2:#1a1a24;--surface3:#20202c;
+      --border:rgba(255,255,255,0.06);--border-md:rgba(255,255,255,0.11);
+      --text:#e2e2ea;--muted:#64647a;--subtle:#2e2e3e;
+      --blue:#5b9bff;--blue-dim:rgba(91,155,255,0.1);
+      --green:#3dd68c;--green-dim:rgba(61,214,140,0.1);
+      --red:#ff6b6b;--red-dim:rgba(255,107,107,0.1);
+      --amber:#ffb84d;--amber-dim:rgba(255,184,77,0.1);
+      --purple:#a78bfa;
+      --radius:6px;
+      --font:'JetBrains Mono','Fira Code',ui-monospace,monospace;
     }
-
-    html, body { height:100%; background:var(--bg); color:var(--text); font-family:var(--font); font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; }
-
-    .shell { min-height:100vh; display:flex; flex-direction:column; }
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .shell{min-height:100vh;display:flex;flex-direction:column}
 
     /* TOPBAR */
-    .topbar {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:0 20px; height:48px;
-      background:var(--surface); border-bottom:1px solid var(--border);
-      position:sticky; top:0; z-index:20; gap:12px;
-    }
-    .brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
-    .brand-logo {
-      width:26px; height:26px; border-radius:5px;
-      background:linear-gradient(135deg,#5b9bff 0%,#a78bfa 100%);
-      display:flex; align-items:center; justify-content:center;
-      font-size:13px; font-weight:800; color:#fff;
-    }
-    .brand-name { font-size:13px; font-weight:600; letter-spacing:.04em; }
-    .brand-sep  { color:var(--subtle); }
-    .brand-sub  { font-size:11px; color:var(--muted); }
-    .topbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .brand-logo{width:26px;height:26px;border-radius:5px;background:linear-gradient(135deg,#5b9bff,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff}
+    .brand-name{font-size:14px;font-weight:700;letter-spacing:.02em}
+    .brand-sep{color:var(--subtle)}
+    .brand-sub{font-size:11px;color:var(--muted)}
 
-    .status-pill {
-      display:flex; align-items:center; gap:6px;
-      padding:3px 10px; border-radius:20px;
-      background:var(--surface2); border:1px solid var(--border);
-      font-size:10px; color:var(--muted); transition:all .2s;
-    }
-    .status-pill.loading { border-color:rgba(255,184,77,.3); color:var(--amber); }
-    .status-pill.ok      { border-color:rgba(61,214,140,.3);  color:var(--green); }
-    .status-pill.err     { border-color:rgba(255,107,107,.3); color:var(--red);   }
-    .sdot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background .2s; }
-    .loading .sdot { background:var(--amber); animation:pulse 1s infinite; }
-    .ok  .sdot     { background:var(--green); }
-    .err .sdot     { background:var(--red);   }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .topbar-center{flex:1;display:flex;align-items:center;justify-content:center}
+    .last-updated{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+    .last-updated .lu-dot{width:6px;height:6px;border-radius:50%;background:var(--subtle);flex-shrink:0}
+    .last-updated.fresh .lu-dot{background:var(--green)}
+    .last-updated.stale .lu-dot{background:var(--amber)}
+
+    .topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .status-pill{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:10px;color:var(--muted);transition:all .2s;white-space:nowrap}
+    .status-pill.loading{border-color:rgba(255,184,77,.3);color:var(--amber)}
+    .status-pill.ok{border-color:rgba(61,214,140,.3);color:var(--green)}
+    .status-pill.err{border-color:rgba(255,107,107,.3);color:var(--red)}
+    .sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .2s}
+    .loading .sdot{background:var(--amber);animation:pulse 1s infinite}
+    .ok  .sdot{background:var(--green)}
+    .err .sdot{background:var(--red)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
     /* BUTTONS */
-    .btn {
-      font-family:var(--font); font-size:11px; cursor:pointer;
-      border-radius:var(--radius); border:1px solid var(--border-md);
-      background:transparent; color:var(--muted);
-      padding:5px 12px; display:inline-flex; align-items:center; gap:5px;
-      transition:background .12s,color .12s; white-space:nowrap;
-    }
-    .btn:hover  { background:var(--surface2); color:var(--text); }
-    .btn:disabled { opacity:.3; cursor:not-allowed; }
-    .btn.primary { border-color:var(--blue); color:var(--blue); }
-    .btn.primary:hover { background:var(--blue-dim); }
-    .btn.sm { font-size:10px; padding:3px 9px; }
+    .btn{font-family:var(--font);font-size:11px;cursor:pointer;border-radius:var(--radius);border:1px solid var(--border-md);background:transparent;color:var(--muted);padding:5px 12px;display:inline-flex;align-items:center;gap:5px;transition:background .12s,color .12s;white-space:nowrap}
+    .btn:hover{background:var(--surface2);color:var(--text)}
+    .btn:disabled{opacity:.3;cursor:not-allowed}
+    .btn.primary{border-color:var(--blue);color:var(--blue)}
+    .btn.primary:hover{background:var(--blue-dim)}
+    .btn.sm{font-size:10px;padding:3px 9px}
+    .btn.danger{border-color:var(--red);color:var(--red)}
+    .btn.danger:hover{background:var(--red-dim)}
 
     /* PROGRESS */
-    .prog-rail { height:2px; background:var(--border); overflow:hidden; }
-    .prog-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--purple)); transition:width .5s ease; }
+    .prog-rail{height:2px;background:var(--border);overflow:hidden}
+    .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width .3s ease}
+
+    /* PROGRESS DETAIL */
+    .prog-detail{display:none;padding:6px 20px;background:var(--surface);border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);align-items:center;gap:10px}
+    .prog-detail.visible{display:flex}
+    .prog-ticker-list{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+    .ptick{padding:1px 6px;border-radius:3px;border:1px solid var(--border);font-size:10px;color:var(--muted);transition:all .2s}
+    .ptick.done{border-color:rgba(61,214,140,.3);color:var(--green);background:var(--green-dim)}
+    .ptick.active{border-color:rgba(255,184,77,.3);color:var(--amber);background:var(--amber-dim);animation:pulse 1s infinite}
+    .ptick.err{border-color:rgba(255,107,107,.3);color:var(--red)}
 
     /* FILTER BAR */
-    .filterbar {
-      display:flex; align-items:center; gap:4px; flex-wrap:wrap;
-      padding:7px 20px; background:var(--surface); border-bottom:1px solid var(--border);
-    }
-    .flabel { font-size:10px; color:var(--muted); margin-right:4px; letter-spacing:.06em; }
-    .fbtn {
-      font-family:var(--font); font-size:10px; padding:2px 9px; border-radius:3px;
-      border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all .1s;
-    }
-    .fbtn:hover { color:var(--text); border-color:var(--border-md); }
-    .fbtn.active { border-color:var(--blue); color:var(--blue); background:var(--blue-dim); }
+    .filterbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:7px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+    .flabel{font-size:10px;color:var(--muted);margin-right:4px;letter-spacing:.06em}
+    .fbtn{font-family:var(--font);font-size:10px;padding:2px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .1s}
+    .fbtn:hover{color:var(--text);border-color:var(--border-md)}
+    .fbtn.active{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
 
     /* MAIN */
-    main { flex:1; overflow-x:auto; }
+    main{flex:1;overflow-x:auto}
 
     /* WELCOME */
-    .welcome {
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:14px; min-height:400px; text-align:center; padding:40px 20px;
-    }
-    .welcome-glyph { font-size:40px; opacity:.2; }
-    .welcome h1 { font-size:18px; font-weight:600; letter-spacing:.02em; }
-    .welcome p  { font-size:12px; color:var(--muted); max-width:420px; line-height:1.7; }
-    .welcome-steps { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; justify-content:center; }
-    .ws { display:flex; align-items:center; gap:7px; background:var(--surface2); border:1px solid var(--border-md); border-radius:var(--radius); padding:7px 13px; font-size:11px; }
-    .wsn { width:17px; height:17px; border-radius:3px; background:var(--blue-dim); border:1px solid rgba(91,155,255,.3); font-size:9px; font-weight:700; color:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:400px;text-align:center;padding:40px 20px}
+    .welcome-glyph{font-size:40px;opacity:.2}
+    .welcome h1{font-size:18px;font-weight:600;letter-spacing:.02em}
+    .welcome p{font-size:12px;color:var(--muted);max-width:440px;line-height:1.7}
+    .welcome-steps{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+    .ws{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius);padding:7px 13px;font-size:11px}
+    .wsn{width:17px;height:17px;border-radius:3px;background:var(--blue-dim);border:1px solid rgba(91,155,255,.3);font-size:9px;font-weight:700;color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
     /* ERROR */
-    .err-banner { display:none; margin:12px 20px; padding:10px 14px; background:var(--red-dim); border:1px solid rgba(255,107,107,.25); border-radius:var(--radius); font-size:12px; color:var(--red); line-height:1.6; }
-    .err-banner.visible { display:block; }
+    .err-banner{display:none;margin:12px 20px;padding:10px 14px;background:var(--red-dim);border:1px solid rgba(255,107,107,.25);border-radius:var(--radius);font-size:12px;color:var(--red);line-height:1.6}
+    .err-banner.visible{display:block}
 
     /* TABLE */
-    .table-outer { display:none; }
-    .table-outer.visible { display:block; }
-    table { width:100%; border-collapse:collapse; font-size:12px; min-width:860px; }
-    thead tr { background:var(--surface2); border-bottom:1px solid var(--border-md); position:sticky; top:48px; z-index:10; }
-    th {
-      padding:8px 12px; text-align:right;
-      font-size:10px; font-weight:500; color:var(--muted);
-      letter-spacing:.07em; text-transform:uppercase; white-space:nowrap;
-      cursor:pointer; user-select:none;
-    }
-    th:hover { color:var(--text); }
-    th:first-child, th:nth-child(2) { text-align:left; }
-    th.asc::after  { content:' ↑'; color:var(--blue); }
-    th.desc::after { content:' ↓'; color:var(--blue); }
-    tbody tr { border-bottom:1px solid var(--border); transition:background .08s; }
-    tbody tr:last-child { border-bottom:none; }
-    tbody tr:hover { background:var(--surface2); }
-    td { padding:8px 12px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    td:first-child, td:nth-child(2) { text-align:left; }
+    .table-outer{display:none}
+    .table-outer.visible{display:block}
+    table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
+    thead tr{background:var(--surface2);border-bottom:1px solid var(--border-md);position:sticky;top:52px;z-index:10}
+    th{padding:8px 12px;text-align:right;font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none}
+    th:hover{color:var(--text)}
+    th:first-child,th:nth-child(2){text-align:left}
+    th.asc::after{content:' ↑';color:var(--blue)}
+    th.desc::after{content:' ↓';color:var(--blue)}
+    tbody tr{border-bottom:1px solid var(--border);transition:background .08s}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover{background:var(--surface2)}
+    tbody tr.updating{opacity:.5}
+    tbody tr.just-updated{animation:rowflash .8s ease}
+    @keyframes rowflash{0%{background:rgba(91,155,255,.15)}100%{background:transparent}}
+    td{padding:8px 12px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    td:first-child,td:nth-child(2){text-align:left}
 
-    .t-ticker { font-weight:600; color:var(--blue); font-size:12px; }
-    .t-name   { color:var(--muted); font-size:11px; }
-    .consensus { display:inline-flex; gap:3px; align-items:center; }
-    .cpill { padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; }
-    .cpill.buy  { background:var(--green-dim); color:var(--green); }
-    .cpill.hold { background:var(--amber-dim); color:var(--amber); }
-    .cpill.sell { background:var(--red-dim);   color:var(--red);   }
-    .up      { color:var(--green); }
-    .down    { color:var(--red);   }
-    .neutral { color:var(--muted); }
-    .na      { color:var(--subtle); font-size:10px; }
+    .t-ticker{font-weight:600;color:var(--blue);font-size:12px}
+    .t-name{color:var(--muted);font-size:11px}
+    .consensus{display:inline-flex;gap:3px;align-items:center}
+    .cpill{padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+    .cpill.buy{background:var(--green-dim);color:var(--green)}
+    .cpill.hold{background:var(--amber-dim);color:var(--amber)}
+    .cpill.sell{background:var(--red-dim);color:var(--red)}
+    .up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--muted)}
+    .na{color:var(--subtle);font-size:10px}
 
-    .bar-cell { display:flex; align-items:center; gap:5px; justify-content:flex-end; }
-    .mbar  { width:38px; height:3px; border-radius:2px; background:var(--subtle); overflow:hidden; flex-shrink:0; }
-    .mfill { height:100%; border-radius:2px; }
-    .stag  { font-size:9px; font-weight:700; padding:1px 5px; border-radius:2px; margin-left:3px; vertical-align:middle; }
-    .stag-ob { background:var(--red-dim);   color:var(--red);   }
-    .stag-os { background:var(--green-dim); color:var(--green); }
+    .bar-cell{display:flex;align-items:center;gap:5px;justify-content:flex-end}
+    .mbar{width:38px;height:3px;border-radius:2px;background:var(--subtle);overflow:hidden;flex-shrink:0}
+    .mfill{height:100%;border-radius:2px}
+    .stag{font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:3px;vertical-align:middle}
+    .stag-ob{background:var(--red-dim);color:var(--red)}
+    .stag-os{background:var(--green-dim);color:var(--green)}
 
     /* SKELETON */
-    .skel { display:inline-block; border-radius:3px; background:var(--surface3); animation:shimmer 1.4s infinite; }
-    @keyframes shimmer { 0%,100%{opacity:.3} 50%{opacity:.7} }
+    .skel{display:inline-block;border-radius:3px;background:var(--surface3);animation:shimmer 1.4s infinite}
+    @keyframes shimmer{0%,100%{opacity:.3}50%{opacity:.7}}
 
     /* COMMENTARY */
-    .commentary { display:none; padding:12px 20px; border-top:1px solid var(--border); background:var(--surface); font-size:12px; line-height:1.7; color:var(--muted); }
-    .commentary.visible { display:block; }
-    .commentary-hd { font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--subtle); margin-bottom:5px; }
-    .commentary strong { color:var(--text); font-weight:600; }
+    .commentary{display:none;padding:12px 20px;border-top:1px solid var(--border);background:var(--surface);font-size:12px;line-height:1.7;color:var(--muted)}
+    .commentary.visible{display:block}
+    .commentary-hd{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--subtle);margin-bottom:5px}
+    .commentary strong{color:var(--text);font-weight:600}
 
     /* FOOTER */
-    footer { padding:8px 20px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--subtle); background:var(--surface); flex-wrap:wrap; gap:4px; }
+    footer{padding:8px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--subtle);background:var(--surface);flex-wrap:wrap;gap:4px}
 
-    ::-webkit-scrollbar { width:5px; height:5px; }
-    ::-webkit-scrollbar-track { background:transparent; }
-    ::-webkit-scrollbar-thumb { background:var(--subtle); border-radius:3px; }
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--subtle);border-radius:3px}
   </style>
 </head>
 <body>
@@ -186,14 +156,27 @@
       <span class="brand-sep">/</span>
       <span class="brand-sub" id="tickerCount">31 tickers</span>
     </div>
+    <div class="topbar-center">
+      <div class="last-updated" id="lastUpdated">
+        <div class="lu-dot"></div>
+        <span id="luText">No data yet</span>
+      </div>
+    </div>
     <div class="topbar-right">
       <div class="status-pill" id="statusPill"><div class="sdot"></div><span id="statusLabel">Ready</span></div>
       <button class="btn sm" id="deepBtn" onclick="deepDive()">↗ Deep dive</button>
-      <button class="btn primary" id="refreshBtn" onclick="refresh()">↻ Refresh</button>
+      <button class="btn sm danger" id="clearBtn" onclick="clearData()">✕ Clear</button>
+      <button class="btn primary" id="refreshBtn" onclick="startRefresh()">↻ Refresh</button>
     </div>
   </header>
 
   <div class="prog-rail"><div class="prog-fill" id="prog"></div></div>
+
+  <div class="prog-detail" id="progDetail">
+    <span style="color:var(--muted);font-size:10px;flex-shrink:0" id="progCount"></span>
+    <div class="prog-ticker-list" id="progTickers"></div>
+    <button class="btn sm danger" onclick="cancelRefresh()">Cancel</button>
+  </div>
 
   <div class="filterbar">
     <span class="flabel">SECTOR</span>
@@ -206,12 +189,12 @@
     <button class="fbtn" onclick="setFilter('europe',this)">Europe</button>
     <span style="margin-left:8px;color:var(--subtle)">|</span>
     <span class="flabel" style="margin-left:8px">SIGNAL</span>
-    <button class="fbtn" onclick="setSig('ob',this)"   title="RSI > 70">OB</button>
-    <button class="fbtn" onclick="setSig('os',this)"   title="RSI < 30">OS</button>
+    <button class="fbtn" onclick="setSig('ob',this)" title="RSI > 70">OB</button>
+    <button class="fbtn" onclick="setSig('os',this)" title="RSI < 30">OS</button>
     <button class="fbtn" onclick="setSig('up20',this)" title="Upside > 20%">↑20%+</button>
     <button class="fbtn" onclick="setSig('52lo',this)" title="Near 52W low">52W Low</button>
-    <button class="fbtn" onclick="setSig('sbuy',this)" title="Strong buy">Strong Buy</button>
-    <span id="tsLabel" style="margin-left:auto;font-size:10px;color:var(--subtle)"></span>
+    <button class="fbtn" onclick="setSig('sbuy',this)" title="Strong buy consensus">Strong Buy</button>
+    <span id="schedLabel" style="margin-left:auto;font-size:10px;color:var(--subtle)"></span>
   </div>
 
   <main>
@@ -220,11 +203,12 @@
     <div class="welcome" id="welcome">
       <div class="welcome-glyph">◈</div>
       <h1>The Oracle</h1>
-      <p>Live market research terminal powered by Gemini 2.5 Flash with Google Search grounding. Real-time prices, analyst consensus, price targets, RSI, and signal analysis — no paid data subscription needed.</p>
+      <p>Live market research terminal powered by Gemini 2.5 Flash + Google Search grounding. Fetches each ticker individually to stay within API rate limits. Data persists between sessions.</p>
       <div class="welcome-steps">
         <div class="ws"><div class="wsn">1</div>Click Refresh</div>
-        <div class="ws"><div class="wsn">2</div>Gemini searches Google</div>
-        <div class="ws"><div class="wsn">3</div>Data renders live</div>
+        <div class="ws"><div class="wsn">2</div>Fetches 1 ticker at a time</div>
+        <div class="ws"><div class="wsn">3</div>Data persists on page</div>
+        <div class="ws"><div class="wsn">4</div>Auto-refreshes at midnight</div>
       </div>
     </div>
 
@@ -256,14 +240,14 @@
   </main>
 
   <footer>
-    <span>Powered by Gemini 2.5 Flash + Google Search grounding</span>
+    <span>Powered by Gemini 3.5 Flash + Google Search grounding</span>
     <span id="footerTs"></span>
     <span>Not investment advice</span>
   </footer>
 
 </div>
 <script>
-// ── WATCHLIST ──────────────────────────────────────────────────────────────
+// ── WATCHLIST ─────────────────────────────────────────────────────────────
 const WL = [
   {ticker:'AAPL', name:'Apple Inc',           sector:'tech'},
   {ticker:'AMD',  name:'Adv. Micro Devices',  sector:'semis'},
@@ -298,132 +282,337 @@ const WL = [
   {ticker:'LMT',  name:'Lockheed Martin',     sector:'defense'},
 ];
 
-// ── STATE ──────────────────────────────────────────────────────────────────
-let tableData = [], activeFilter='all', activeSig=null, sortKey=null, sortDir=-1, busy=false;
+// ── STORAGE KEY ───────────────────────────────────────────────────────────
+const STORE_KEY = 'oracle_data_v2';
 
-// ── UTILS ──────────────────────────────────────────────────────────────────
-const $=id=>document.getElementById(id);
+// ── STATE ─────────────────────────────────────────────────────────────────
+let tableData    = {};   // keyed by ticker
+let activeFilter = 'all';
+let activeSig    = null;
+let sortKey      = null;
+let sortDir      = -1;
+let busy         = false;
+let cancelFlag   = false;
+let midnightTimer = null;
 
-function setStatus(txt,state){
-  $('statusPill').className='status-pill'+(state?' '+state:'');
-  $('statusLabel').textContent=txt;
+// ── INIT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  loadFromStorage();
+  scheduleMidnight();
+});
+
+// ── STORAGE ───────────────────────────────────────────────────────────────
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    tableData = saved.data || {};
+    const ts = saved.timestamp;
+    if (Object.keys(tableData).length > 0) {
+      renderTable();
+      showTable();
+      updateLastUpdated(ts);
+      $('footerTs').textContent = 'Last refresh: ' + new Date(ts).toLocaleString('en-GB');
+    }
+  } catch(e) { console.warn('Storage load failed:', e); }
 }
-function setProg(p){ $('prog').style.width=p+'%'; }
-function showErr(m){ const e=$('errBanner'); e.innerHTML='⚠ '+m; e.classList.add('visible'); }
-function clearErr(){ $('errBanner').classList.remove('visible'); }
 
-// ── GEMINI CALLS ──────────────────────────────────────────────────────────
-async function callGemini(prompt, useSearch=false){
-  const r = await fetch('/api/gemini',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({prompt, useSearch}),
+function saveToStorage(ts) {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ data: tableData, timestamp: ts }));
+  } catch(e) { console.warn('Storage save failed:', e); }
+}
+
+function clearData() {
+  if (!confirm('Clear all cached data?')) return;
+  localStorage.removeItem(STORE_KEY);
+  tableData = {};
+  $('tableOuter').classList.remove('visible');
+  $('welcome').style.display = 'flex';
+  $('commentary').classList.remove('visible');
+  updateLastUpdated(null);
+  setStatus('Ready', '');
+}
+
+// ── LAST UPDATED ──────────────────────────────────────────────────────────
+function updateLastUpdated(ts) {
+  const el = $('lastUpdated');
+  const txt = $('luText');
+  if (!ts) {
+    el.className = 'last-updated';
+    txt.textContent = 'No data yet';
+    return;
+  }
+  const d = new Date(ts);
+  const now = new Date();
+  const ageHours = (now - d) / 3600000;
+  const timeStr = d.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  txt.textContent = 'Updated ' + timeStr;
+  el.className = 'last-updated ' + (ageHours < 24 ? 'fresh' : 'stale');
+}
+
+// ── MIDNIGHT SCHEDULER ───────────────────────────────────────────────────
+function scheduleMidnight() {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setDate(midnight.getDate() + 1);
+  midnight.setHours(0, 0, 30, 0); // 00:00:30 to avoid exact-second issues
+  const msUntil = midnight - now;
+  midnightTimer = setTimeout(() => {
+    console.log('Midnight auto-refresh triggered');
+    startRefresh();
+    scheduleMidnight(); // reschedule for next midnight
+  }, msUntil);
+
+  const hh = String(midnight.getHours()).padStart(2,'0');
+  const mm = String(midnight.getMinutes()).padStart(2,'0');
+  $('schedLabel').textContent = `Auto-refresh at ${midnight.toLocaleDateString('en-GB')} 00:00`;
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+function setStatus(txt, state) {
+  $('statusPill').className = 'status-pill' + (state ? ' '+state : '');
+  $('statusLabel').textContent = txt;
+}
+function setProg(p) { $('prog').style.width = p+'%'; }
+function showErr(m) { const e=$('errBanner'); e.innerHTML='⚠ '+m; e.classList.add('visible'); }
+function clearErr() { $('errBanner').classList.remove('visible'); }
+function showTable() {
+  $('tableOuter').classList.add('visible');
+  $('welcome').style.display = 'none';
+}
+
+// ── API CALL ──────────────────────────────────────────────────────────────
+async function fetchTicker(ticker) {
+  const r = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'ticker', ticker }),
   });
-  if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
-  const d=await r.json();
-  return d.text||'';
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(e.error || r.status);
+  }
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  return d.ticker;
 }
 
-async function fetchMarketData(tickers){
-  const r = await fetch('/api/gemini',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({mode:'data', tickers}),
+async function callGemini(prompt, useSearch=false) {
+  const r = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, useSearch }),
   });
-  if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
-  const d=await r.json();
-  return d.data||[];
+  if (!r.ok) { const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status); }
+  const d = await r.json();
+  return d.text || '';
 }
 
-// ── RENDER HELPERS ─────────────────────────────────────────────────────────
-function rsiColor(v){ return v>=70?'var(--red)':v<=30?'var(--green)':v>=60?'var(--amber)':'var(--blue)'; }
-function fmtPrice(v,cur){
-  if(v==null) return '<span class="na">—</span>';
+// ── REFRESH ───────────────────────────────────────────────────────────────
+async function startRefresh() {
+  if (busy) return;
+  busy = true;
+  cancelFlag = false;
+  clearErr();
+  $('refreshBtn').disabled = true;
+  $('commentary').classList.remove('visible');
+  setStatus('Starting refresh…', 'loading');
+  setProg(2);
+  showTable();
+
+  // Show progress tracker
+  const progDetail = $('progDetail');
+  const progTickers = $('progTickers');
+  const progCount = $('progCount');
+  progDetail.classList.add('visible');
+  progTickers.innerHTML = WL.map(w =>
+    `<span class="ptick" id="pt_${w.ticker}">${w.ticker}</span>`
+  ).join('');
+
+  const tickers = WL.map(w => w.ticker);
+  let done = 0;
+  const errors = [];
+
+  for (const ticker of tickers) {
+    if (cancelFlag) {
+      setStatus('Cancelled', '');
+      break;
+    }
+
+    const chip = $(`pt_${ticker}`);
+    if (chip) chip.className = 'ptick active';
+    progCount.textContent = `${done}/${tickers.length}`;
+    setStatus(`Fetching ${ticker}… (${done+1}/${tickers.length})`, 'loading');
+    setProg(Math.round((done / tickers.length) * 90) + 2);
+
+    try {
+      const row = await fetchTicker(ticker);
+      row.buy  = parseInt(row.buy)  || 0;
+      row.hold = parseInt(row.hold) || 0;
+      row.sell = parseInt(row.sell) || 0;
+      tableData[ticker] = row;
+
+      // Update just that row in the table
+      updateTableRow(ticker, row);
+      if (chip) chip.className = 'ptick done';
+    } catch (err) {
+      errors.push(ticker + ': ' + err.message.slice(0,60));
+      if (chip) chip.className = 'ptick err';
+      console.error(`${ticker} failed:`, err.message);
+    }
+
+    done++;
+    // Delay between requests to respect rate limits
+    if (done < tickers.length && !cancelFlag) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  // Save to storage
+  const ts = new Date().toISOString();
+  saveToStorage(ts);
+  updateLastUpdated(ts);
+  $('footerTs').textContent = 'Last refresh: ' + new Date(ts).toLocaleString('en-GB');
+
+  setProg(95);
+  progDetail.classList.remove('visible');
+
+  if (!cancelFlag) {
+    setStatus(`${done - errors.length}/${tickers.length} tickers loaded`, 'ok');
+    if (errors.length) showErr(`${errors.length} ticker(s) failed: ${errors.slice(0,3).join(' | ')}`);
+
+    // Commentary
+    setStatus('Generating signal analysis…', 'loading');
+    await buildCommentary();
+  }
+
+  setProg(100);
+  setTimeout(() => setProg(0), 800);
+  busy = false;
+  cancelFlag = false;
+  $('refreshBtn').disabled = false;
+}
+
+function cancelRefresh() {
+  cancelFlag = true;
+  $('progDetail').classList.remove('visible');
+}
+
+// ── ROW UPDATE (live, without full re-render) ─────────────────────────────
+function updateTableRow(ticker, row) {
+  const existing = document.querySelector(`tr[data-ticker="${ticker}"]`);
+  const html = buildRowHTML(ticker, row);
+  if (existing) {
+    existing.outerHTML = html;
+    // Flash the updated row
+    const updated = document.querySelector(`tr[data-ticker="${ticker}"]`);
+    if (updated) {
+      updated.classList.add('just-updated');
+      setTimeout(() => updated.classList.remove('just-updated'), 800);
+    }
+  } else {
+    // Append if not present yet (first load)
+    renderTable();
+  }
+}
+
+// ── RENDER TABLE ─────────────────────────────────────────────────────────
+function renderTable() {
+  let rows = WL.map(w => tableData[w.ticker] ? { ...tableData[w.ticker], _wl: w } : { ticker: w.ticker, _wl: w, _empty: true });
+
+  if (activeFilter !== 'all') rows = rows.filter(r => r._wl.sector === activeFilter);
+  if (activeSig) rows = rows.filter(r => {
+    if (r._empty) return false;
+    const rsi=parseFloat(r.rsi), up=parseFloat(r.upside_pct), pos=parseFloat(r.pos52w);
+    const tot=(r.buy||0)+(r.hold||0)+(r.sell||0);
+    if (activeSig==='ob')   return rsi>=70;
+    if (activeSig==='os')   return rsi<=30;
+    if (activeSig==='up20') return up>=20;
+    if (activeSig==='52lo') return pos<=20;
+    if (activeSig==='sbuy') return tot>0&&(r.buy/tot)>=0.65;
+    return true;
+  });
+
+  if (sortKey) {
+    rows.sort((a,b) => {
+      if (a._empty) return 1; if (b._empty) return -1;
+      let av=a[sortKey], bv=b[sortKey];
+      if (sortKey==='name') { av=a._wl.name; bv=b._wl.name; }
+      if (sortKey==='consensus') {
+        const ta=(a.buy||0)+(a.hold||0)+(a.sell||0), tb=(b.buy||0)+(b.hold||0)+(b.sell||0);
+        av=ta>0?a.buy/ta:0; bv=tb>0?b.buy/tb:0;
+      }
+      if (av==null) return 1; if (bv==null) return -1;
+      return (typeof av==='string'?av.localeCompare(bv):parseFloat(av)-parseFloat(bv))*sortDir;
+    });
+  }
+
+  $('tbody').innerHTML = rows.map(r => buildRowHTML(r.ticker, r._empty ? null : r)).join('');
+}
+
+function buildRowHTML(ticker, r) {
+  const wl = WL.find(w => w.ticker === ticker) || {};
+  if (!r) {
+    // Skeleton row for tickers not yet loaded
+    const s = w => `<span class="skel" style="width:${w}px;height:10px"></span>`;
+    return `<tr data-ticker="${ticker}">
+      <td><span class="t-ticker">${ticker}</span></td>
+      <td><span class="t-name">${wl.name||ticker}</span></td>
+      ${[80,44,55,44,55,44,50,50,55,50].map(w=>`<td>${s(w)}</td>`).join('')}
+    </tr>`;
+  }
+
+  const cur = r.currency||'USD';
   const sym = cur==='EUR'?'€':cur==='GBP'?'£':'$';
-  return sym+parseFloat(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-function fmtPct(v){
-  if(v==null) return '<span class="na">—</span>';
-  const n=parseFloat(v);
-  const cls=n>0.5?'up':n<-0.5?'down':'neutral';
-  return `<span class="${cls}">${n>0?'+':''}${n.toFixed(1)}%</span>`;
-}
+  const fmtP = v => v&&v!=='N/A' ? sym+parseFloat(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '<span class="na">—</span>';
+  const fmtPct = v => {
+    if (!v||v==='N/A') return '<span class="na">—</span>';
+    const n=parseFloat(v); const cls=n>0.5?'up':n<-0.5?'down':'neutral';
+    return `<span class="${cls}">${n>0?'+':''}${n.toFixed(1)}%</span>`;
+  };
+  const rsiColor = v => v>=70?'var(--red)':v<=30?'var(--green)':v>=60?'var(--amber)':'var(--blue)';
 
-// ── RENDER ROW ─────────────────────────────────────────────────────────────
-function renderRow(r){
-  const wl=WL.find(w=>w.ticker===r.ticker)||{};
-  const cur=r.currency||'USD';
   const tot=(r.buy||0)+(r.hold||0)+(r.sell||0);
   const cons=tot>0
     ?`<div class="consensus"><span class="cpill buy">${r.buy}B</span><span class="cpill hold">${r.hold}H</span><span class="cpill sell">${r.sell}S</span></div>`
     :'<span class="na">—</span>';
 
-  const rsiV=r.rsi!=null?parseFloat(r.rsi):null;
+  const rsiV=r.rsi&&r.rsi!=='N/A'?parseFloat(r.rsi):null;
   const rsiHtml=rsiV==null?'<span class="na">—</span>'
     :`<div class="bar-cell"><span style="color:${rsiColor(rsiV)}">${rsiV.toFixed(1)}${rsiV>=70?'<span class="stag stag-ob">OB</span>':rsiV<=30?'<span class="stag stag-os">OS</span>':''}</span><div class="mbar"><div class="mfill" style="width:${Math.min(rsiV,100)}%;background:${rsiColor(rsiV)}"></div></div></div>`;
 
-  const posV=r.pos52w!=null?parseFloat(r.pos52w):null;
+  const posV=r.pos52w&&r.pos52w!=='N/A'?parseFloat(r.pos52w):null;
   const posHtml=posV==null?'<span class="na">—</span>'
     :`<div class="bar-cell"><span style="color:${posV<20?'var(--red)':posV>80?'var(--green)':'var(--muted)'}">${posV.toFixed(1)}%</span><div class="mbar"><div class="mfill" style="width:${Math.min(posV,100)}%;background:var(--blue)"></div></div></div>`;
 
-  return `<tr>
-    <td><span class="t-ticker">${r.ticker}</span></td>
-    <td><span class="t-name">${wl.name||r.ticker}</span></td>
+  return `<tr data-ticker="${ticker}">
+    <td><span class="t-ticker">${ticker}</span></td>
+    <td><span class="t-name">${wl.name||ticker}</span></td>
     <td style="text-align:center">${cons}</td>
-    <td>${fmtPrice(r.price,cur)}</td>
+    <td>${fmtP(r.price)}</td>
     <td>${fmtPct(r.change_pct)}</td>
-    <td style="font-weight:600">${fmtPrice(r.pt_median,cur)}</td>
+    <td style="font-weight:600">${fmtP(r.pt_median)}</td>
     <td>${fmtPct(r.upside_pct)}</td>
-    <td class="neutral">${fmtPrice(r.pt_low,cur)}</td>
-    <td class="neutral">${fmtPrice(r.pt_high,cur)}</td>
+    <td class="neutral">${fmtP(r.pt_low)}</td>
+    <td class="neutral">${fmtP(r.pt_high)}</td>
     <td>${rsiHtml}</td>
     <td>${posHtml}</td>
   </tr>`;
 }
 
-// ── SKELETON ───────────────────────────────────────────────────────────────
-function showSkeleton(){
-  $('welcome').style.display='none';
-  $('tableOuter').classList.add('visible');
-  const s=w=>`<span class="skel" style="width:${w}px;height:10px"></span>`;
-  $('tbody').innerHTML=WL.map(()=>`<tr>${[44,90,80,55,44,55,44,50,50,55,50].map(w=>`<td>${s(w)}</td>`).join('')}</tr>`).join('');
-}
-
-// ── RENDER TABLE ───────────────────────────────────────────────────────────
-function renderTable(){
-  let rows=[...tableData];
-  if(activeFilter!=='all') rows=rows.filter(r=>{const w=WL.find(x=>x.ticker===r.ticker);return w&&w.sector===activeFilter;});
-  if(activeSig) rows=rows.filter(r=>{
-    const rsi=parseFloat(r.rsi), up=parseFloat(r.upside_pct), pos=parseFloat(r.pos52w);
-    const tot=(r.buy||0)+(r.hold||0)+(r.sell||0);
-    if(activeSig==='ob')   return rsi>=70;
-    if(activeSig==='os')   return rsi<=30;
-    if(activeSig==='up20') return up>=20;
-    if(activeSig==='52lo') return pos<=20;
-    if(activeSig==='sbuy') return tot>0&&(r.buy/tot)>=0.65;
-    return true;
-  });
-  if(sortKey){
-    rows.sort((a,b)=>{
-      let av=a[sortKey],bv=b[sortKey];
-      if(sortKey==='name'){const wa=WL.find(w=>w.ticker===a.ticker),wb=WL.find(w=>w.ticker===b.ticker);av=wa?wa.name:a.ticker;bv=wb?wb.name:b.ticker;}
-      if(sortKey==='consensus'){const ta=(a.buy||0)+(a.hold||0)+(a.sell||0),tb=(b.buy||0)+(b.hold||0)+(b.sell||0);av=ta>0?a.buy/ta:0;bv=tb>0?b.buy/tb:0;}
-      if(av==null)return 1; if(bv==null)return -1;
-      return(typeof av==='string'?av.localeCompare(bv):parseFloat(av)-parseFloat(bv))*sortDir;
-    });
-  }
-  $('tbody').innerHTML=rows.length?rows.map(renderRow).join(''):`<tr><td colspan="11" style="text-align:center;padding:48px;color:var(--muted)">No tickers match this filter</td></tr>`;
-}
-
-// ── SORT ───────────────────────────────────────────────────────────────────
+// ── SORT ─────────────────────────────────────────────────────────────────
 const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w'];
-function sortBy(key){
-  sortDir=sortKey===key?sortDir*-1:-1; sortKey=key;
+function sortBy(key) {
+  sortDir = sortKey===key ? sortDir*-1 : -1; sortKey=key;
   document.querySelectorAll('th').forEach((th,i)=>{th.classList.remove('asc','desc');if(COL_KEYS[i]===key)th.classList.add(sortDir===1?'asc':'desc');});
   renderTable();
 }
 
-// ── FILTERS ────────────────────────────────────────────────────────────────
+// ── FILTERS ───────────────────────────────────────────────────────────────
 function setFilter(f,el){
   activeFilter=f; activeSig=null;
   document.querySelectorAll('.filterbar .fbtn').forEach(b=>b.classList.remove('active'));
@@ -432,114 +621,27 @@ function setFilter(f,el){
 function setSig(s,el){
   activeSig=activeSig===s?null:s;
   document.querySelectorAll('.filterbar .fbtn').forEach(b=>b.classList.remove('active'));
-  if(activeSig)el.classList.add('active'); renderTable();
+  if(activeSig)el.classList.add('active'); else document.querySelector('.fbtn').classList.add('active');
+  renderTable();
 }
 
-// ── MAIN REFRESH ──────────────────────────────────────────────────────────
-async function refresh(){
-  if(busy)return;
-  busy=true; clearErr();
-  $('refreshBtn').disabled=true;
-  $('commentary').classList.remove('visible');
-  setStatus('Searching for market data…','loading');
-  setProg(5); showSkeleton();
-
-  const tickers=WL.map(w=>w.ticker).join(', ');
-
-  const dataPrompt=`You are a market data assistant. Use Google Search to find current market data for these stock tickers and return ONLY a valid JSON array — no markdown, no code fences, no explanation. Start with [ and end with ].
-
-Tickers: ${tickers}
-
-For each ticker return an object with EXACTLY these keys:
-"ticker"       - string, the ticker symbol
-"price"        - string, current price with 2 decimal places e.g. "182.50"
-"currency"     - string, "USD" for US stocks, "EUR" for RHM
-"change_pct"   - string, today's % change e.g. "1.23" or "-0.45" (no % sign)
-"buy"          - integer, number of analyst Buy ratings
-"hold"         - integer, number of analyst Hold ratings
-"sell"         - integer, number of analyst Sell ratings
-"pt_low"       - string, analyst 12-month price target low e.g. "150.00"
-"pt_median"    - string, analyst 12-month price target median/average e.g. "210.00"
-"pt_high"      - string, analyst 12-month price target high e.g. "280.00"
-"upside_pct"   - string, % upside to median PT e.g. "15.4" or "-3.2" (no % sign)
-"rsi"          - string, 14-day RSI value e.g. "58.3"
-"pos52w"       - string, 52-week position 0-100 e.g. "67.2" where 0=52W low, 100=52W high
-
-Rules:
-- Use "N/A" only if a value is genuinely unavailable after searching
-- RHM (Rheinmetall) trades on XETRA — price in EUR, currency = "EUR"
-- BAESY is the US ADR for BAE Systems — price in USD
-- All numeric strings must be numbers only (no currency symbols, no % signs)
-- Search for the most current data available today
-
-Return ONLY the JSON array starting with [`;
-
+// ── COMMENTARY ───────────────────────────────────────────────────────────
+async function buildCommentary(){
   try {
-    setProg(15);
-    setStatus('Gemini searching Google for live data…','loading');
-
-    const raw = await callGemini(dataPrompt, true);
-    setProg(75);
-
-    // Extract JSON array from response
-    const match = raw.match(/\[[\s\S]*\]/);
-    if(!match) throw new Error('Gemini did not return a JSON array. Response preview: '+raw.slice(0,200));
-
-    const rows = JSON.parse(match[0]);
-    tableData = rows.map(r=>({ ...r, buy:parseInt(r.buy)||0, hold:parseInt(r.hold)||0, sell:parseInt(r.sell)||0 }));
-
-    renderTable();
-    $('tableOuter').classList.add('visible');
-    $('welcome').style.display='none';
-
-    const now=new Date();
-    const ts=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-    $('tsLabel').textContent='Updated '+ts;
-    $('footerTs').textContent='Last refresh: '+now.toLocaleString('en-GB');
-    setProg(85);
-
-    // Commentary — wait 3s to avoid back-to-back RPM hits
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setStatus('Analysing signals…','loading');
-    await buildCommentary(tableData);
-
-    setProg(100);
-    setStatus(`${tableData.length} tickers loaded · ${ts}`,'ok');
-    setTimeout(()=>setProg(0),800);
-
-  } catch(err){
-    setStatus('Error','err');
-    showErr(err.message);
-    setProg(0);
-    console.error(err);
-  } finally {
-    busy=false;
-    $('refreshBtn').disabled=false;
-  }
-}
-
-// ── COMMENTARY ────────────────────────────────────────────────────────────
-async function buildCommentary(rows){
-  try {
-    const snap = rows.map(r=>({
-      ticker:r.ticker, rsi:r.rsi, upside:r.upside_pct,
-      pos52w:r.pos52w, buy:r.buy, hold:r.hold, sell:r.sell, change:r.change_pct
+    const snap = Object.values(tableData).map(r=>({
+      ticker:r.ticker,rsi:r.rsi,upside:r.upside_pct,
+      pos52w:r.pos52w,buy:r.buy,hold:r.hold,sell:r.sell,change:r.change_pct
     }));
-
     const prompt=`You are a professional equity analyst. Write a concise signal summary for a trader based on this watchlist data:
 ${JSON.stringify(snap)}
-
 Instructions:
-- Write 4-6 bullet points using • as the bullet character
-- Each bullet must be a specific, actionable insight
-- Highlight: overbought/oversold RSI, strong consensus with high upside, 52W extremes, notable movers
-- Wrap ticker symbols in **bold**
-- Max 25 words per bullet
-- No headers, preamble, or disclaimers`;
-
+- Write 4-6 bullet points using • as bullet character
+- Each bullet: specific, actionable insight
+- Highlight overbought/oversold RSI, strong consensus + high upside, 52W extremes, notable movers
+- Wrap tickers in **bold**
+- Max 25 words per bullet. No headers or disclaimers.`;
     const text = await callGemini(prompt, false);
-    if(!text) return;
-
+    if (!text) return;
     const html = text.split('\n').filter(l=>l.trim())
       .map(l=>`<div style="margin-bottom:4px">${l.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')}</div>`)
       .join('');
@@ -550,18 +652,17 @@ Instructions:
 
 // ── DEEP DIVE ─────────────────────────────────────────────────────────────
 async function deepDive(){
-  if(!tableData.length){ alert('Run Refresh first.'); return; }
-  const top=tableData
+  if (!Object.keys(tableData).length){ alert('Run Refresh first.'); return; }
+  const top=Object.values(tableData)
     .filter(r=>(r.buy+r.hold+r.sell)>=8)
     .map(r=>({...r,br:(r.buy+r.hold+r.sell)>0?r.buy/(r.buy+r.hold+r.sell):0}))
     .sort((a,b)=>b.br-a.br||parseFloat(b.upside_pct||0)-parseFloat(a.upside_pct||0))
     .slice(0,5).map(r=>r.ticker).join(', ') || 'NVDA, META, MSFT, AMD, AVGO';
-
   $('deepBtn').disabled=true; $('deepBtn').textContent='…';
   try {
-    const text=await callGemini(`You are a senior equity analyst. Deep dive on: ${top}.
-For each: (1) current momentum/recent catalyst, (2) consensus & PT range, (3) key bull-case risk, (4) one comparable peer.
-Keep each point 2-3 sentences. Use **ticker** bold format. Be specific.`, false);
+    const text=await callGemini(`Senior equity analyst deep dive on: ${top}.
+For each: (1) momentum/recent catalyst, (2) consensus & PT range, (3) key bull-case risk, (4) one comparable peer.
+2-3 sentences each. **ticker** bold format. Be specific.`, false);
     $('commentaryText').innerHTML=(text||'No response').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     $('commentary').classList.add('visible');
     $('commentary').scrollIntoView({behavior:'smooth',block:'start'});
