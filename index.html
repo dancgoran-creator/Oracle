@@ -234,10 +234,7 @@
             <th onclick="sortBy('consensus')" style="text-align:center">Consensus</th>
             <th onclick="sortBy('price')">Price</th>
             <th onclick="sortBy('change_pct')">Day %</th>
-            <th onclick="sortBy('pt_median')">PT Median</th>
-            <th onclick="sortBy('upside_pct')">Upside %</th>
-            <th onclick="sortBy('pt_low')">PT Low</th>
-            <th onclick="sortBy('pt_high')">PT High</th>
+
             <th onclick="sortBy('rsi')">RSI 14d</th>
             <th onclick="sortBy('pos52w')">52W Pos</th>
             <th onclick="sortBy('sma50')">SMA 50</th>
@@ -648,10 +645,18 @@ async function startGeminiPhase() {
     setProg(Math.round((analystDone / tickers.length) * 95));
 
     try {
-      const analyst = await fetchAnalyst(ticker);
-      const price = parseFloat(tableData[ticker]?.price);
-      const ptMedian = parseFloat(analyst.pt_median);
-      const upsidePct = (price && ptMedian && !isNaN(price) && !isNaN(ptMedian))
+      // Finnhub (consensus + earnings) and Gemini (price targets) in parallel
+      const [analystRes, targetsRes] = await Promise.allSettled([
+        fetchAnalyst(ticker),
+        fetchTargets(ticker),
+      ]);
+
+      const analyst = analystRes.status === 'fulfilled' ? analystRes.value : {};
+      const targets = targetsRes.status === 'fulfilled' ? targetsRes.value : {};
+
+      const price    = parseFloat(tableData[ticker]?.price);
+      const ptMedian = parseFloat(targets.pt_median);
+      const upside   = (price && ptMedian && !isNaN(price) && !isNaN(ptMedian))
         ? (((ptMedian - price) / price) * 100).toFixed(1)
         : null;
 
@@ -660,11 +665,11 @@ async function startGeminiPhase() {
         buy:           parseInt(analyst.buy)  || 0,
         hold:          parseInt(analyst.hold) || 0,
         sell:          parseInt(analyst.sell) || 0,
-        pt_low:        analyst.pt_low        || null,
-        pt_median:     analyst.pt_median     || null,
-        pt_high:       analyst.pt_high       || null,
-        upside_pct:    upsidePct,
-        earnings_date: analyst.earnings_date || null,
+        earnings_date: analyst.earnings_date  || null,
+        pt_low:        targets.pt_low         || null,
+        pt_median:     targets.pt_median      || null,
+        pt_high:       targets.pt_high        || null,
+        upside_pct:    upside,
       };
       updateTableRow(ticker, tableData[ticker]);
       if (chip) chip.className = 'ptick done';
@@ -818,10 +823,10 @@ function buildRowHTML(ticker, r) {
     <td style="text-align:center">${cons}</td>
     <td>${fmtP(r.price)}</td>
     <td>${fmtPct(r.change_pct)}</td>
-    <td style="font-weight:600">${fmtP(r.pt_median)}</td>
-    <td>${fmtPct(r.upside_pct)}</td>
     <td class="neutral">${fmtP(r.pt_low)}</td>
+    <td style="font-weight:600">${fmtP(r.pt_median)}</td>
     <td class="neutral">${fmtP(r.pt_high)}</td>
+    <td>${fmtPct(r.upside_pct)}</td>
     <td>${rsiHtml}</td>
     <td>${posHtml}</td>
     <td class="neutral">${fmtP(r.sma50)}</td>
@@ -832,7 +837,7 @@ function buildRowHTML(ticker, r) {
 }
 
 // ── SORT ─────────────────────────────────────────────────────────────────
-const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_median','upside_pct','pt_low','pt_high','rsi','pos52w','sma50','sma200','ma_signal','earnings_date'];
+const COL_KEYS=['ticker','name','consensus','price','change_pct','pt_low','pt_median','pt_high','upside_pct','rsi','pos52w','sma50','sma200','ma_signal','earnings_date'];
 function sortBy(key) {
   sortDir = sortKey===key ? sortDir*-1 : -1; sortKey=key;
   document.querySelectorAll('th').forEach((th,i)=>{th.classList.remove('asc','desc');if(COL_KEYS[i]===key)th.classList.add(sortDir===1?'asc':'desc');});
