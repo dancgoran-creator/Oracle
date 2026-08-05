@@ -381,9 +381,10 @@ function setStatus(txt, state) {
 function setProg(p) { $('prog').style.width = p+'%'; }
 function showErr(m) { const e=$('errBanner'); e.innerHTML='⚠ '+m; e.classList.add('visible'); }
 function clearErr() { $('errBanner').classList.remove('visible'); }
-function showTable() {
+function showTable(empty = false) {
   $('tableOuter').classList.add('visible');
   $('welcome').style.display = 'none';
+  if (empty) $('tbody').innerHTML = ''; // clear ready for live row appending
 }
 
 // ── API CALL ──────────────────────────────────────────────────────────────
@@ -423,7 +424,7 @@ async function startRefresh() {
   $('commentary').classList.remove('visible');
   setStatus('Starting refresh…', 'loading');
   setProg(2);
-  showTable();
+  showTable(true); // clear table — rows will appear one by one
 
   // Show progress tracker
   const progDetail = $('progDetail');
@@ -437,6 +438,8 @@ async function startRefresh() {
   const tickers = WL.map(w => w.ticker);
   let done = 0;
   const errors = [];
+
+  let consecutiveFails = 0;
 
   for (const ticker of tickers) {
     if (cancelFlag) {
@@ -456,18 +459,32 @@ async function startRefresh() {
       row.hold = parseInt(row.hold) || 0;
       row.sell = parseInt(row.sell) || 0;
       tableData[ticker] = row;
+      consecutiveFails = 0;
 
-      // Update just that row in the table
+      // Append row immediately to table as data arrives
       updateTableRow(ticker, row);
       if (chip) chip.className = 'ptick done';
+
     } catch (err) {
-      errors.push(ticker + ': ' + err.message.slice(0,60));
+      errors.push(ticker + ': ' + err.message.slice(0, 80));
+      consecutiveFails++;
       if (chip) chip.className = 'ptick err';
       console.error(`${ticker} failed:`, err.message);
+
+      // If first ticker fails, or 3 consecutive fails — surface immediately and stop
+      if (done === 0 || consecutiveFails >= 3) {
+        const reason = err.message.slice(0, 200);
+        showErr(`Stopped after ${consecutiveFails} consecutive failure(s) on ${ticker}: ${reason}`);
+        setStatus('Stopped — see error above', 'err');
+        $('progDetail').classList.remove('visible');
+        busy = false;
+        cancelFlag = false;
+        $('refreshBtn').disabled = false;
+        return;
+      }
     }
 
     done++;
-    // Delay between requests to respect rate limits
     if (done < tickers.length && !cancelFlag) {
       await new Promise(r => setTimeout(r, 8000)); // 8s gap to stay under Gemini spend rate limit
     }
@@ -503,21 +520,25 @@ function cancelRefresh() {
   $('progDetail').classList.remove('visible');
 }
 
-// ── ROW UPDATE (live, without full re-render) ─────────────────────────────
+// ── ROW UPDATE (live, append as data arrives) ────────────────────────────
 function updateTableRow(ticker, row) {
+  const tbody = $('tbody');
   const existing = document.querySelector(`tr[data-ticker="${ticker}"]`);
   const html = buildRowHTML(ticker, row);
+
   if (existing) {
+    // Replace skeleton/existing row in place
     existing.outerHTML = html;
-    // Flash the updated row
-    const updated = document.querySelector(`tr[data-ticker="${ticker}"]`);
-    if (updated) {
-      updated.classList.add('just-updated');
-      setTimeout(() => updated.classList.remove('just-updated'), 800);
-    }
   } else {
-    // Append if not present yet (first load)
-    renderTable();
+    // First time — append a new real row at the bottom
+    tbody.insertAdjacentHTML('beforeend', html);
+  }
+
+  // Flash the row green to signal new data
+  const updated = document.querySelector(`tr[data-ticker="${ticker}"]`);
+  if (updated) {
+    updated.classList.add('just-updated');
+    setTimeout(() => updated.classList.remove('just-updated'), 1200);
   }
 }
 
